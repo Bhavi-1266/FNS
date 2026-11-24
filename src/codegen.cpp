@@ -518,13 +518,6 @@ void CodeGen::generate(Node *program) {
         int saved_tc = temp_counter_;
         temp_counter_ = 0;
         for (auto it = static_objs_.rbegin(); it != static_objs_.rend(); ++it) {
-            std::string skip;
-            if (!it->guard.empty()) {
-                std::string g = new_temp();
-                skip = new_label();
-                emit(g + " = " + it->guard, "int");
-                emit("ifFalse " + g + " goto " + skip);
-            }
             size_t br = it->name.find('[');
             std::string a = new_temp();
             emit(a + " = &" + it->name.substr(0, br), "ptr");
@@ -534,19 +527,28 @@ void CodeGen::generate(Node *program) {
                 emit("param " + a);
                 emit("call " + it->cls->dtor->irname + ", 1");
             }
-            if (!skip.empty()) emit_label(skip);
         }
         emit("return");
         cur_ = saved;
         temp_counter_ = saved_tc;
         mod_.funcs.push_back(fini);
+        external("__fns_atexit");
+        uses_atexit_ = true;
+    }
+    if (uses_atexit_) {
+        // static objects are destroyed by the library's exit list (registered as they are
+        // constructed; the globals' __global_fini first): run it before main returns
+        external("__fns_run_atexit");
         for (Function *f : mod_.funcs) {
             if (f->name != "main") continue;
             for (size_t i = 0; i < f->code.size(); ++i)
                 if (f->code[i].text.rfind("return", 0) == 0) {
-                    f->code.insert(f->code.begin() + i, Instr{"call __global_fini, 0", ""});
+                    f->code.insert(f->code.begin() + i, Instr{"call __fns_run_atexit, 0", ""});
                     ++i;
                 }
+            if (!static_objs_.empty())
+                f->code.insert(f->code.begin(), {Instr{"param __global_fini", ""}, Instr{"param 0", ""},
+                                                 Instr{"call __fns_atexit, 2", ""}});
         }
     }
     if (!ginit_->code.empty()) {
@@ -1111,30 +1113,21 @@ void CodeGen::declare_global_var(Node *n, const std::string &prefix, bool regist
         error(n->line, "array '" + n->str + "' has elements of incomplete type");
 
     std::string decl = irname + " : " + type_str(t) + " (" + itos(size_of(t)) + ")";
-    bool emitted_const = false;
-    if (init && (init->kind == NK::IntLit || init->kind == NK::FloatLit || init->kind == NK::CharLit ||
-                 init->kind == NK::BoolLit || init->kind == NK::Nullptr)) {
-        Val v = gen_literal(init);
-        decl += " = " + v.place;
-        emitted_const = true;
-    } else if (init && init->kind == NK::InitList && !is_aggregate(t)) {
-        bool all_const = true;
+    bool emitted_const = init && literal_init(init, t);
+    if (emitted_const && init->kind == NK::InitList) {
         std::string vals;
-        for (Node *k : init->kids) {
-            if (k->kind != NK::IntLit && k->kind != NK::FloatLit && k->kind != NK::CharLit) { all_const = false; break; }
-            Val v = gen_literal(k);
-            vals += (vals.empty() ? "" : ", ") + v.place;
-        }
-        if (all_const) { decl += " = {" + vals + "}"; emitted_const = true; }
-    } else if (init && init->kind == NK::StrLit && is_pointer(t)) {
+        for (Node *k : init->kids) vals += (vals.empty() ? "" : ", ") + gen_literal(k).place;
+        decl += " = {" + vals + "}";
+    } else if (emitted_const && init->kind == NK::StrLit) {
         decl += " = str" + itos(string_index(init->str));
-        emitted_const = true;
+    } else if (emitted_const) {
+        decl += " = " + gen_literal(init).place;
     }
     mod_.globals.push_back(decl);
 
     {   // a global object whose class has a destructor is destroyed when main returns
         ClassInfo *gc = (is_aggregate(t) && t.dims.empty() && !t.ptr && !t.ref) ? class_of(t) : nullptr;
-        if (gc && gc->dtor && construct) static_objs_.push_back({irname, gc, ""});
+        if (gc && gc->dtor && construct) static_objs_.push_back({irname, gc});
         // global array of objects: default-construct each element, destroy at exit
         TypeSpec et = is_array(t) ? resolve(elem_type(t)) : t;
         ClassInfo *ec = (is_array(t) && t.dims.size() == 1 && t.dims[0] > 0 && is_aggregate(et)) ? class_of(et) : nullptr;
@@ -1147,7 +1140,7 @@ void CodeGen::declare_global_var(Node *n, const std::string &prefix, bool regist
                 for_each_element(a, ec, t.dims[0], false);
                 cur_ = saved;
             }
-            if (ec->dtor) static_objs_.push_back({irname + "[" + itos(t.dims[0]) + "]", ec, ""});
+            if (ec->dtor) static_objs_.push_back({irname + "[" + itos(t.dims[0]) + "]", ec});
         }
     }
     if (!construct) {
@@ -1168,6 +1161,19 @@ void CodeGen::declare_global_var(Node *n, const std::string &prefix, bool regist
             cur_ = saved;
         }
     }
+}
+
+// Whether a global initialiser is written into .data as it is: a literal, a list of
+// literals for a scalar array, or a string literal for a pointer.
+bool CodeGen::literal_init(Node *init, const TypeSpec &t) {
+    auto literal = [](Node *k) { return k->kind == NK::IntLit || k->kind == NK::FloatLit || k->kind == NK::CharLit; };
+    if (literal(init) || init->kind == NK::BoolLit || init->kind == NK::Nullptr) return true;
+    if (init->kind == NK::InitList && !is_aggregate(t)) {
+        for (Node *k : init->kids)
+            if (!literal(k)) return false;
+        return true;
+    }
+    return init->kind == NK::StrLit && is_pointer(t);
 }
 
 void CodeGen::gen_pending_bodies() {
@@ -1482,21 +1488,35 @@ void CodeGen::gen_local_decl(Node *n) {
 
     if (n->flags & F_STATIC) {
         ClassInfo *sc = (is_aggregate(t) && t.dims.empty() && !t.ptr && !t.ref) ? class_of(t) : nullptr;
-        if (sc && (sc->ctor || sc->dtor)) {
-            // static local object: constructed the first time control passes
-            // here (guarded by a hidden flag), destroyed when main returns
-            std::string gname = cur_fn_->irname + "_" + n->str;
-            std::string guard = gname + "__guard";
-            mod_.globals.push_back(guard + " : int (4) = 0");
+        TypeSpec et = is_array(t) ? resolve(elem_type(t)) : t;
+        ClassInfo *ec = (t.dims.size() == 1 && t.dims[0] > 0 && is_aggregate(et) && !init) ? class_of(et) : nullptr;
+        if (ec && !ec->ctor && !ec->dtor) ec = nullptr;
+        if ((sc && (sc->ctor || sc->dtor)) || ec || (init && !literal_init(init, t))) {
+            // initialised the first time control passes here (guarded by a hidden
+            // flag); an object's destructor is then registered to run at exit
             declare_global_var(n, cur_fn_->irname + "_", true, false);
+            Symbol *sym = lookup(n->str);
+            std::string guard = sym->irname + "__guard";
+            mod_.globals.push_back(guard + " : int (4) = 0");
             std::string g = new_temp(), skip = new_label();
             emit(g + " = " + guard, "int");
             emit("if " + g + " goto " + skip);
             emit(guard + " = 1", "int");
-            Symbol *sym = lookup(n->str);
-            if (sym) gen_var_init(*sym, t, init);
+            if (ec) {                          // array of objects: construct (and register) each element
+                std::string a = new_temp();
+                emit(a + " = &" + sym->irname, type_str(pointer_to(et)));
+                for_each_element(a, ec, t.dims[0], false, ec->dtor != nullptr);
+                uses_atexit_ = uses_atexit_ || ec->dtor;
+            } else {
+                gen_var_init(*sym, t, init);
+            }
+            if (sc && sc->dtor) {
+                std::string a = new_temp();
+                emit(a + " = &" + sym->irname, type_str(pointer_to(t)));
+                emit_call(external("__fns_atexit"), "__fns_atexit", {sc->dtor->irname, a}, false);
+                uses_atexit_ = true;
+            }
             emit_label(skip);
-            if (sc->dtor) static_objs_.push_back({gname, sc, guard});
             return;
         }
         declare_global_var(n, cur_fn_->irname + "_");
@@ -1599,8 +1619,9 @@ bool CodeGen::has_pending_dtors() const {
 }
 
 // Call the default constructor (forward order) or the destructor (reverse
-// order) of each of the `count` objects starting at address `base`.
-void CodeGen::for_each_element(const std::string &base, ClassInfo *ci, int count, bool destroy) {
+// order) of each of the `count` objects starting at address `base`; with
+// `at_exit`, each constructed object's destructor is registered to run at exit.
+void CodeGen::for_each_element(const std::string &base, ClassInfo *ci, int count, bool destroy, bool at_exit) {
     TypeSpec ot;
     ot.base = ci->kind;
     ot.name = ci->name;
@@ -1617,7 +1638,8 @@ void CodeGen::for_each_element(const std::string &base, ClassInfo *ci, int count
         emit("param " + p);
         emit("call " + ci->dtor->irname + ", 1");
     } else {
-        call_ctor(ci, p, nullptr);
+        if (ci->ctor) call_ctor(ci, p, nullptr);
+        if (at_exit) emit_call(external("__fns_atexit"), "__fns_atexit", {ci->dtor->irname, p}, false);
     }
     emit(i + " = " + i + (destroy ? " - 1" : " + 1"), "int");
     emit("goto " + top);

@@ -132,7 +132,30 @@ void *realloc(void *p, unsigned int n) {
 /*  Process                                                                 */
 /* ======================================================================== */
 
-void exit(int code) { __sys_exit(code); }
+/* Destructors of objects with static storage, registered when each object is
+   constructed and run in reverse order by exit() and at the end of main. */
+struct __fns_exit_entry { void (*fn)(void *); void *obj; struct __fns_exit_entry *next; };
+static struct __fns_exit_entry *__fns_exit_list;
+
+void __fns_atexit(void (*fn)(void *), void *obj) {
+    struct __fns_exit_entry *e = (struct __fns_exit_entry *)malloc(sizeof(struct __fns_exit_entry));
+    if (!e) return;
+    e->fn = fn;
+    e->obj = obj;
+    e->next = __fns_exit_list;
+    __fns_exit_list = e;
+}
+
+void __fns_run_atexit(void) {
+    while (__fns_exit_list) {
+        struct __fns_exit_entry *e = __fns_exit_list;
+        __fns_exit_list = e->next;
+        e->fn(e->obj);
+        free(e);
+    }
+}
+
+void exit(int code) { __fns_run_atexit(); __sys_exit(code); }
 
 void abort() {
     const char *m = "Aborted\n";

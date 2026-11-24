@@ -26,11 +26,14 @@ Val(4)
 ~Val(2)
 v3=4
 p=3 q=0
+T(8)
+first_use(8): made 8, calls 81
+first_use(9): made 8, calls 82
+T(0)
+T(0)
 main ends
-~Val(4)
-~Val(1)
+~T(55)
 ~T(0)
-~T(101)
-~T(1)
+~T(8)
 ~T(42)
 ~T(7)

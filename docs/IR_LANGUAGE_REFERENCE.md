@@ -94,13 +94,13 @@ sit at offset 0.
 | `new`/`delete` | `malloc` for scalar and array storage; constructors run for objects and each `new T[n]` element; `delete[]` destroys elements in reverse order |
 | Lambdas | emitted as `lambda_N`; captured variables become trailing parameters, copied (`[=]`) or taken by address (`[&]`) into hidden locals at the point of creation |
 | `argc`/`argv` | ordinary parameters of `main`; the back end stores spim's `$a0`/`$a1` into them |
-| Global initialisers | constants go into `.data`; non-constant initialisers and global constructors run in `__global_init`, called at the top of `main`; destructors of global and static-local objects run in `__global_fini`, called before each `return` of `main` |
+| Global initialisers | constants go into `.data`; non-constant initialisers and global constructors run in `__global_init`, called at the top of `main`; destructors of global objects run in `__global_fini`, which `main` registers as the first exit handler; the exit handlers run before each `return` of `main` (`call __fns_run_atexit`) and in `exit()` |
 | Block scoping | shadowed locals get unique IR names (`i`, `i_1`) |
 | Overloading | each overload gets its own IR name: `f`, `f__1`, `f__2`, …; methods `Class_m__1`; constructors `Class_Class__1` |
 | Default arguments | the call site appends the default expressions as ordinary `param`s |
 | Copy constructor | `T b = a;` and by-value arguments call `Class_Class__k(&dst, &src)` instead of `copy` |
 | Scope-exit destructors | `param &obj` / `call Class__dtor, 1` emitted at block end, `return`, `break`, `continue`, in reverse declaration order |
-| Static local objects | guarded by a hidden global `fn_name__guard`; constructed the first time control reaches the declaration |
+| Static locals with a non-literal initializer, static local objects | guarded by a hidden global `fn_name_var__guard`; initialised the first time control reaches the declaration; an object then registers its destructor with `call __fns_atexit, 2` |
 | Range `for` | hidden index loop `range_i` over the array address `range_base` |
 | `enum class` | scoped enumerators are integer constants, like plain enumerators |
 

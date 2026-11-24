@@ -263,9 +263,22 @@ static class members.
     main_cnt = t7                        ; int
 ```
 
-A static local *object* (with a constructor) is constructed when control first
-reaches it, guarded by a hidden flag `function_name__guard`, and destroyed at
-program exit.
+A static local whose initialiser is not a literal (`static int calls = n * 10;`,
+`static T obj(n);`, `static T arr[2];`) is initialised the first time control
+reaches it, guarded by a hidden flag `function_variable__guard` (test 31):
+
+```
+    t5 = first_use_calls__guard          ; int
+    if t5 goto L3
+    first_use_calls__guard = 1           ; int
+    t6 = n * 10                          ; int
+    first_use_calls = t6                 ; int
+L3:
+```
+
+A static local *object* registers its destructor with the library right after it is
+constructed (`__fns_atexit(dtor, &obj)`, like C++'s `__cxa_atexit`). `exit()` and the
+end of `main` run the registered destructors in reverse order of construction.
 
 ---
 
@@ -322,7 +335,9 @@ passed and returned by value.
   block ends, and before `return`, `break` and `continue`. Temporary objects are
   destroyed at the end of the full statement.
 - **Global objects:** they are constructed in `__global_init`, called at the start
-  of `main`, and destroyed in `__global_fini` before `main` returns.
+  of `main`. `__global_fini`, which destroys them in reverse order, is registered as
+  the first exit handler, so static locals (constructed later) are destroyed before
+  the globals, at the end of `main` or on `exit()`.
 
 ### 4.3 Inheritance and virtual functions — tests 17, 29
 
@@ -645,7 +660,7 @@ Beyond the required list, these were needed to compile normal C/C++ test program
 | **Default arguments** (tests 27, 31) | Stored with the function. The call site appends the missing default expressions as ordinary `param`s. |
 | **Copy constructors** (test 31) | `T b = a;` and passing an object by value call the copy constructor if the class has one; otherwise the object is copied byte for byte. A temporary returned from a function is moved directly, without a copy (copy elision). |
 | **Converting constructors** | `T x = 5;` and passing `5` to a `const T&` / `T` parameter call `T(int)`. |
-| **Object lifetime** (test 31) | Scope-exit destructors, end-of-statement destruction of temporaries, lazy static-local objects, and destruction of globals in reverse order at exit. |
+| **Object lifetime** (test 31) | Scope-exit destructors, end-of-statement destruction of temporaries, lazily initialised static locals, and destruction of static objects in reverse construction order at the end of `main` or on `exit()`. |
 | **Range-based for** (test 32) | `for (int x : arr)` over arrays of known size becomes a hidden index loop. `for (auto &x : arr)` binds a reference to each element. |
 | **enum class** (test 32) | Scoped enumerators `Color::Red`, with an optional underlying type `enum class E : char`. |
 | **C++ casts** (test 33) | `static_cast`, `reinterpret_cast`, `const_cast`, `dynamic_cast` (no run-time check), functional casts `int(x)` and C-style casts, including casts to typedef and enum names. |
@@ -710,8 +725,8 @@ Details worth knowing:
   a user function called `abs`, `move` or `add` never clashes with a MIPS
   instruction or a library function.
 - **Program start.** `main` stores `argc`/`argv`, allocates large globals, calls
-  `__global_init` (dynamic initialisers and global constructors), and calls
-  `__global_fini` before returning.
+  `__global_init` (dynamic initialisers and global constructors), registers
+  `__global_fini`, and runs the exit handlers (`__fns_run_atexit`) before returning.
 - **Size warning.** If a program is larger than spim's default 64 KB text segment,
   fnsc warns and suggests `spim -stext 262144`.
 
@@ -780,7 +795,7 @@ the native compiler printed. Current result: **38 / 38 pass**. Other checks:
 | printf / scanf | 08, 30 | `libfns.c` `__fns_vformat` / `__fns_vscan`; syscalls 11 and 14 |
 | Functions, recursion | 09 | `param`/`call`; `$fp` frames in `mips.cpp` |
 | goto / break / continue | 10 | label stack; label checks |
-| static | 11 | `function_variable` globals; guarded static objects |
+| static | 11, 31 | `function_variable` globals; guarded first-use initialisation; exit-handler registration |
 | Function pointers | 12 | `call *p` → `jalr` |
 | Variadic functions | 13 | `__builtin_va_start` → `&__va_args`; stdarg macros in the prelude |
 | Dynamic memory | 14, 16 | `libfns.c` malloc/free on `sbrk`; `new`/`delete` lowering |
@@ -797,6 +812,6 @@ the native compiler printed. Current result: **38 / 38 pass**. Other checks:
 | Library | 26 | `libfns.c` |
 | Overloading, default arguments | 27 | `pick_overload` ranking; `f__N` names |
 | Floating point | 28 | typed IR; FPU instructions |
-| Object lifetime | 31 | scope/temporary destructor lists; `__global_init`/`__global_fini` |
+| Object lifetime | 31 | scope/temporary destructor lists; `__global_init`/`__global_fini`; `__fns_atexit` in `libfns.c` |
 | Range-for, enum class | 32 | `gen_range_for`; scoped enumerators |
 | IR output | all | `--print-ir`, `--emit-ir`, `make run`, `make test` (`test/output/test_results.txt`), `test/output/*.ir` |

@@ -140,7 +140,7 @@ private:
     void gen_block(Node *n, bool new_scope);
     void gen_local_decl(Node *n);
     void emit_scope_dtors(size_t depth, const std::string &keep = "");
-    void for_each_element(const std::string &base, ClassInfo *ci, int count, bool destroy);
+    void for_each_element(const std::string &base, ClassInfo *ci, int count, bool destroy, bool at_exit = false);
     void gen_var_init(const Symbol &sym, const TypeSpec &t, Node *init);
     void init_aggregate(const std::string &base_addr, const TypeSpec &t, Node *list);
     void fill_aggregate(const std::string &base, const TypeSpec &t, Node *list, size_t &idx, bool braced);
@@ -271,8 +271,10 @@ private:
     int cur_line_ = 0;
     std::set<std::string> lib_protos_;
     std::set<Node *> enum_nodes_done_;
-    struct StaticObj { std::string name; ClassInfo *cls; std::string guard; };
-    std::vector<StaticObj> static_objs_;  // objects destroyed by __global_fini
+    struct StaticObj { std::string name; ClassInfo *cls; };
+    std::vector<StaticObj> static_objs_;  // global objects destroyed by __global_fini
+    bool uses_atexit_ = false;            // a static-local object registers its destructor
+    bool literal_init(Node *init, const TypeSpec &t);
     std::vector<std::pair<std::string, ClassInfo *>> temp_dtors_;   // argument copies to destroy
     std::map<size_t, int> dim_values_;    // evaluated constant-expression array bounds
     std::vector<size_t> loop_depth_;      // scopes_.size() when each loops_ entry was pushed

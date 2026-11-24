@@ -1,7 +1,10 @@
 // Feature: C++ object lifetime: copy constructor (copy-initialisation, pass by
 // value), default arguments, global objects with constructor arguments,
 // construction/destruction order of globals, static locals, temporaries.
+// Static locals are initialised when control first reaches them (also from a
+// run-time value) and destroyed in reverse order of construction, also by exit().
 #include <cstdio>
+#include <cstdlib>
 
 class T {
 public:
@@ -18,6 +21,18 @@ int show(T t) { printf("show %d\n", t.id); return t.id; }
 T &instance() {
     static T only(42);                 // constructed on the first call only
     return only;
+}
+
+void first_use(int n) {
+    static T made(n);                  // run-time argument: built on the first call
+    static int calls = n * 10;         // run-time initialiser, evaluated once
+    calls++;
+    printf("first_use(%d): made %d, calls %d\n", n, made.id, calls);
+}
+
+void pair_of_two() {
+    static T two[2];                   // static array of objects, built on first use
+    two[1].id = 55;
 }
 
 class Counter {
@@ -64,6 +79,9 @@ int main() {
     int p = 3, q = 8;
     larger(p, q) = 0;                  // ?: of two lvalues returned by reference
     printf("p=%d q=%d\n", p, q);
+    first_use(8);
+    first_use(9);
+    pair_of_two();
     printf("main ends\n");
-    return 0;
+    exit(0);                           // exit() also destroys static and global objects
 }

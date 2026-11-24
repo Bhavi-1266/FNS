@@ -1,6 +1,6 @@
 # FNS (Friendly Neighbourhood Spiderman) compiler: source -> MIPS32 assembly (spim)
 #
-# Build is two-stage:
+# Build is three-stage:
 #   1. build/fnsc-boot  - the compiler without a C library;
 #   2. it compiles the runtime library src/lib/libfns.c to src/lib/libfns.s;
 #   3. ./fnsc           - the final compiler, with libfns.s embedded.

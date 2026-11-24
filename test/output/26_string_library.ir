@@ -1,0 +1,677 @@
+; FNS three-address code
+; source: test/26_string_library.c
+
+.data
+    str0: "Hello"
+    str1: ", World"
+    str2: "%s | %s | len=%d\n"
+    str3: "cmp: %d %d %d\n"
+    str4: "abc"
+    str5: "abd"
+    str6: "b"
+    str7: "a"
+    str8: "ncmp: %d\n"
+    str9: "compiler"
+    str10: "compute"
+    str11: "truncate-me"
+    str12: "strncpy: %s\n"
+    str13: "XYZW"
+    str14: "strncat: %s\n"
+    str15: "strchr: %s, strrchr: %s\n"
+    str16: "strstr: %s, missing: %s\n"
+    str17: "World"
+    str18: "xyz"
+    str19: "found"
+    str20: "null"
+    str21: "duplicate"
+    str22: "%s\n"
+    str23: "one,two;;three four"
+    str24: ",; "
+    str25: "[%s]"
+    str26: "\n"
+    str27: "MiXeD 123 text!"
+    str28: "a1 b2, c3!"
+    str29: "alpha=%d digit=%d space=%d punct=%d\n"
+    str30: "atoi=%d atol=%ld atof=%.3f\n"
+    str31: "  -321xyz"
+    str32: "123456"
+    str33: "2.5e2"
+    str34: "0x1F rest"
+    str35: "strtol hex=%ld rest=%s\n"
+    str36: "abs=%d %d\n"
+    str37: "memcpy: %d %d, memset: %d, memcmp: %d\n"
+    str38: "memmove: %d %d %d %d %d\n"
+    str39: "rand repeatable after srand: %d\n"
+
+.extern
+    strcpy
+    strcat
+    strlen
+    printf
+    strcmp
+    strncmp
+    strncpy
+    strncat
+    strchr
+    strrchr
+    strstr
+    strdup
+    free
+    strtok
+    isupper
+    tolower
+    toupper
+    isalpha
+    isdigit
+    isspace
+    ispunct
+    atoi
+    atol
+    atof
+    strtol
+    abs
+    memcpy
+    memset
+    memcmp
+    memmove
+    srand
+    rand
+
+.text
+
+function main() : int
+    local a : char[64] (64)
+    local b : char[64] (64)
+    local dup : char* (4)
+    local text : char[20] (20)
+    local tok : char* (4)
+    local mixed : char[16] (16)
+    local i : int (4)
+    local al : int (4)
+    local dg : int (4)
+    local sp : int (4)
+    local pu : int (4)
+    local p : char* (4)
+    local end : char* (4)
+    local hexval : long (4)
+    local nums : int[5] (20)
+    local copy : int[5] (20)
+    local r1 : int (4)
+    local r2 : int (4)
+    t1 = &a                              ; char*
+    *t1 = 0                              ; char
+    t2 = t1 + 1                          ; char*
+    *t2 = 0                              ; char
+    t3 = t1 + 2                          ; char*
+    *t3 = 0                              ; char
+    t4 = t1 + 3                          ; char*
+    *t4 = 0                              ; char
+    t5 = t1 + 4                          ; char*
+    *t5 = 0                              ; char
+    t6 = t1 + 5                          ; char*
+    *t6 = 0                              ; char
+    t7 = t1 + 6                          ; char*
+    *t7 = 0                              ; char
+    t8 = t1 + 7                          ; char*
+    *t8 = 0                              ; char
+    t9 = t1 + 8                          ; char*
+    *t9 = 0                              ; char
+    t10 = t1 + 9                         ; char*
+    *t10 = 0                             ; char
+    t11 = t1 + 10                        ; char*
+    *t11 = 0                             ; char
+    t12 = t1 + 11                        ; char*
+    *t12 = 0                             ; char
+    t13 = t1 + 12                        ; char*
+    *t13 = 0                             ; char
+    t14 = t1 + 13                        ; char*
+    *t14 = 0                             ; char
+    t15 = t1 + 14                        ; char*
+    *t15 = 0                             ; char
+    t16 = t1 + 15                        ; char*
+    *t16 = 0                             ; char
+    t17 = t1 + 16                        ; char*
+    *t17 = 0                             ; char
+    t18 = t1 + 17                        ; char*
+    *t18 = 0                             ; char
+    t19 = t1 + 18                        ; char*
+    *t19 = 0                             ; char
+    t20 = t1 + 19                        ; char*
+    *t20 = 0                             ; char
+    t21 = t1 + 20                        ; char*
+    *t21 = 0                             ; char
+    t22 = t1 + 21                        ; char*
+    *t22 = 0                             ; char
+    t23 = t1 + 22                        ; char*
+    *t23 = 0                             ; char
+    t24 = t1 + 23                        ; char*
+    *t24 = 0                             ; char
+    t25 = t1 + 24                        ; char*
+    *t25 = 0                             ; char
+    t26 = t1 + 25                        ; char*
+    *t26 = 0                             ; char
+    t27 = t1 + 26                        ; char*
+    *t27 = 0                             ; char
+    t28 = t1 + 27                        ; char*
+    *t28 = 0                             ; char
+    t29 = t1 + 28                        ; char*
+    *t29 = 0                             ; char
+    t30 = t1 + 29                        ; char*
+    *t30 = 0                             ; char
+    t31 = t1 + 30                        ; char*
+    *t31 = 0                             ; char
+    t32 = t1 + 31                        ; char*
+    *t32 = 0                             ; char
+    t33 = t1 + 32                        ; char*
+    *t33 = 0                             ; char
+    t34 = t1 + 33                        ; char*
+    *t34 = 0                             ; char
+    t35 = t1 + 34                        ; char*
+    *t35 = 0                             ; char
+    t36 = t1 + 35                        ; char*
+    *t36 = 0                             ; char
+    t37 = t1 + 36                        ; char*
+    *t37 = 0                             ; char
+    t38 = t1 + 37                        ; char*
+    *t38 = 0                             ; char
+    t39 = t1 + 38                        ; char*
+    *t39 = 0                             ; char
+    t40 = t1 + 39                        ; char*
+    *t40 = 0                             ; char
+    t41 = t1 + 40                        ; char*
+    *t41 = 0                             ; char
+    t42 = t1 + 41                        ; char*
+    *t42 = 0                             ; char
+    t43 = t1 + 42                        ; char*
+    *t43 = 0                             ; char
+    t44 = t1 + 43                        ; char*
+    *t44 = 0                             ; char
+    t45 = t1 + 44                        ; char*
+    *t45 = 0                             ; char
+    t46 = t1 + 45                        ; char*
+    *t46 = 0                             ; char
+    t47 = t1 + 46                        ; char*
+    *t47 = 0                             ; char
+    t48 = t1 + 47                        ; char*
+    *t48 = 0                             ; char
+    t49 = t1 + 48                        ; char*
+    *t49 = 0                             ; char
+    t50 = t1 + 49                        ; char*
+    *t50 = 0                             ; char
+    t51 = t1 + 50                        ; char*
+    *t51 = 0                             ; char
+    t52 = t1 + 51                        ; char*
+    *t52 = 0                             ; char
+    t53 = t1 + 52                        ; char*
+    *t53 = 0                             ; char
+    t54 = t1 + 53                        ; char*
+    *t54 = 0                             ; char
+    t55 = t1 + 54                        ; char*
+    *t55 = 0                             ; char
+    t56 = t1 + 55                        ; char*
+    *t56 = 0                             ; char
+    t57 = t1 + 56                        ; char*
+    *t57 = 0                             ; char
+    t58 = t1 + 57                        ; char*
+    *t58 = 0                             ; char
+    t59 = t1 + 58                        ; char*
+    *t59 = 0                             ; char
+    t60 = t1 + 59                        ; char*
+    *t60 = 0                             ; char
+    t61 = t1 + 60                        ; char*
+    *t61 = 0                             ; char
+    t62 = t1 + 61                        ; char*
+    *t62 = 0                             ; char
+    t63 = t1 + 62                        ; char*
+    *t63 = 0                             ; char
+    t64 = t1 + 63                        ; char*
+    *t64 = 0                             ; char
+    copy t1, str0, 6                     ; char[]
+    t65 = &b                             ; char*
+    t66 = (char*) t65                    ; char*
+    t67 = &a                             ; char*
+    t68 = (char*) t67                    ; char*
+    param t66
+    param t68
+    t69 = call strcpy, 2                 ; char*
+    t70 = &a                             ; char*
+    t71 = (char*) t70                    ; char*
+    param t71
+    param str1
+    t72 = call strcat, 2                 ; char*
+    t73 = &a                             ; char*
+    t74 = &b                             ; char*
+    t75 = &a                             ; char*
+    t76 = (char*) t75                    ; char*
+    param t76
+    t77 = call strlen, 1                 ; unsigned int
+    t78 = (int) t77                      ; int
+    param str2
+    param t73
+    param t74
+    param t78
+    t79 = call printf, 4                 ; int
+    param str4
+    param str4
+    t80 = call strcmp, 2                 ; int
+    t81 = t80 == 0                       ; int
+    param str4
+    param str5
+    t82 = call strcmp, 2                 ; int
+    t83 = t82 < 0                        ; int
+    param str6
+    param str7
+    t84 = call strcmp, 2                 ; int
+    t85 = t84 > 0                        ; int
+    param str3
+    param t81
+    param t83
+    param t85
+    t86 = call printf, 4                 ; int
+    t87 = (unsigned int) 4               ; unsigned int
+    param str9
+    param str10
+    param t87
+    t88 = call strncmp, 3                ; int
+    param str8
+    param t88
+    t89 = call printf, 2                 ; int
+    t90 = &b                             ; char*
+    t91 = (char*) t90                    ; char*
+    t92 = (unsigned int) 8               ; unsigned int
+    param t91
+    param str11
+    param t92
+    t93 = call strncpy, 3                ; char*
+    t94 = &b                             ; char*
+    t95 = t94 + 8                        ; char*
+    *t95 = 0                             ; char
+    t96 = &b                             ; char*
+    param str12
+    param t96
+    t97 = call printf, 2                 ; int
+    t98 = &b                             ; char*
+    t99 = (char*) t98                    ; char*
+    t100 = (unsigned int) 2              ; unsigned int
+    param t99
+    param str13
+    param t100
+    t101 = call strncat, 3               ; char*
+    t102 = &b                            ; char*
+    param str14
+    param t102
+    t103 = call printf, 2                ; int
+    t104 = &a                            ; char*
+    t105 = (char*) t104                  ; char*
+    t106 = (int) 111                     ; int
+    param t105
+    param t106
+    t107 = call strchr, 2                ; char*
+    t108 = &a                            ; char*
+    t109 = (char*) t108                  ; char*
+    t110 = (int) 111                     ; int
+    param t109
+    param t110
+    t111 = call strrchr, 2               ; char*
+    param str15
+    param t107
+    param t111
+    t112 = call printf, 3                ; int
+    t113 = &a                            ; char*
+    t114 = (char*) t113                  ; char*
+    param t114
+    param str17
+    t115 = call strstr, 2                ; char*
+    t117 = &a                            ; char*
+    t118 = (char*) t117                  ; char*
+    param t118
+    param str18
+    t119 = call strstr, 2                ; char*
+    ifFalse t119 goto L1
+    t116 = str19                         ; char*
+    goto L2
+L1:
+    t116 = str20                         ; char*
+L2:
+    param str16
+    param t115
+    param t116
+    t120 = call printf, 3                ; int
+    param str21
+    t121 = call strdup, 1                ; char*
+    dup = t121                           ; char*
+    *dup = 68                            ; char
+    param str22
+    param dup
+    t122 = call printf, 2                ; int
+    param dup
+    call free, 1
+    t123 = &text                         ; char*
+    *t123 = 0                            ; char
+    t124 = t123 + 1                      ; char*
+    *t124 = 0                            ; char
+    t125 = t123 + 2                      ; char*
+    *t125 = 0                            ; char
+    t126 = t123 + 3                      ; char*
+    *t126 = 0                            ; char
+    t127 = t123 + 4                      ; char*
+    *t127 = 0                            ; char
+    t128 = t123 + 5                      ; char*
+    *t128 = 0                            ; char
+    t129 = t123 + 6                      ; char*
+    *t129 = 0                            ; char
+    t130 = t123 + 7                      ; char*
+    *t130 = 0                            ; char
+    t131 = t123 + 8                      ; char*
+    *t131 = 0                            ; char
+    t132 = t123 + 9                      ; char*
+    *t132 = 0                            ; char
+    t133 = t123 + 10                     ; char*
+    *t133 = 0                            ; char
+    t134 = t123 + 11                     ; char*
+    *t134 = 0                            ; char
+    t135 = t123 + 12                     ; char*
+    *t135 = 0                            ; char
+    t136 = t123 + 13                     ; char*
+    *t136 = 0                            ; char
+    t137 = t123 + 14                     ; char*
+    *t137 = 0                            ; char
+    t138 = t123 + 15                     ; char*
+    *t138 = 0                            ; char
+    t139 = t123 + 16                     ; char*
+    *t139 = 0                            ; char
+    t140 = t123 + 17                     ; char*
+    *t140 = 0                            ; char
+    t141 = t123 + 18                     ; char*
+    *t141 = 0                            ; char
+    t142 = t123 + 19                     ; char*
+    *t142 = 0                            ; char
+    copy t123, str23, 20                 ; char[]
+    t143 = &text                         ; char*
+    t144 = (char*) t143                  ; char*
+    param t144
+    param str24
+    t145 = call strtok, 2                ; char*
+    tok = t145                           ; char*
+L3:
+    ifFalse tok goto L4
+    param str25
+    param tok
+    t146 = call printf, 2                ; int
+    t147 = (void*) 0                     ; void*
+    t148 = (char*) t147                  ; char*
+    param t148
+    param str24
+    t149 = call strtok, 2                ; char*
+    tok = t149                           ; char*
+    goto L3
+L4:
+    param str26
+    t150 = call printf, 1                ; int
+    t151 = &mixed                        ; char*
+    *t151 = 0                            ; char
+    t152 = t151 + 1                      ; char*
+    *t152 = 0                            ; char
+    t153 = t151 + 2                      ; char*
+    *t153 = 0                            ; char
+    t154 = t151 + 3                      ; char*
+    *t154 = 0                            ; char
+    t155 = t151 + 4                      ; char*
+    *t155 = 0                            ; char
+    t156 = t151 + 5                      ; char*
+    *t156 = 0                            ; char
+    t157 = t151 + 6                      ; char*
+    *t157 = 0                            ; char
+    t158 = t151 + 7                      ; char*
+    *t158 = 0                            ; char
+    t159 = t151 + 8                      ; char*
+    *t159 = 0                            ; char
+    t160 = t151 + 9                      ; char*
+    *t160 = 0                            ; char
+    t161 = t151 + 10                     ; char*
+    *t161 = 0                            ; char
+    t162 = t151 + 11                     ; char*
+    *t162 = 0                            ; char
+    t163 = t151 + 12                     ; char*
+    *t163 = 0                            ; char
+    t164 = t151 + 13                     ; char*
+    *t164 = 0                            ; char
+    t165 = t151 + 14                     ; char*
+    *t165 = 0                            ; char
+    t166 = t151 + 15                     ; char*
+    *t166 = 0                            ; char
+    copy t151, str27, 16                 ; char[]
+    i = 0                                ; int
+L5:
+    t167 = &mixed                        ; char*
+    t168 = t167 + i                      ; char*
+    t169 = *t168                         ; char
+    ifFalse t169 goto L7
+    t170 = &mixed                        ; char*
+    t171 = t170 + i                      ; char*
+    t173 = &mixed                        ; char*
+    t174 = t173 + i                      ; char*
+    t175 = *t174                         ; char
+    t176 = (int) t175                    ; int
+    param t176
+    t177 = call isupper, 1               ; int
+    ifFalse t177 goto L8
+    t178 = &mixed                        ; char*
+    t179 = t178 + i                      ; char*
+    t180 = *t179                         ; char
+    t181 = (int) t180                    ; int
+    param t181
+    t182 = call tolower, 1               ; int
+    t172 = t182                          ; int
+    goto L9
+L8:
+    t183 = &mixed                        ; char*
+    t184 = t183 + i                      ; char*
+    t185 = *t184                         ; char
+    t186 = (int) t185                    ; int
+    param t186
+    t187 = call toupper, 1               ; int
+    t172 = t187                          ; int
+L9:
+    t188 = (char) t172                   ; char
+    *t171 = t188                         ; char
+L6:
+    t189 = i + 1                         ; int
+    i = t189                             ; int
+    goto L5
+L7:
+    t190 = &mixed                        ; char*
+    param str22
+    param t190
+    t191 = call printf, 2                ; int
+    al = 0                               ; int
+    dg = 0                               ; int
+    sp = 0                               ; int
+    pu = 0                               ; int
+    p = str28                            ; char*
+L10:
+    t192 = *p                            ; char
+    ifFalse t192 goto L12
+    t193 = *p                            ; char
+    t194 = (int) t193                    ; int
+    param t194
+    t195 = call isalpha, 1               ; int
+    ifFalse t195 goto L13
+    t196 = al + 1                        ; int
+    al = t196                            ; int
+L13:
+    t197 = *p                            ; char
+    t198 = (int) t197                    ; int
+    param t198
+    t199 = call isdigit, 1               ; int
+    ifFalse t199 goto L14
+    t200 = dg + 1                        ; int
+    dg = t200                            ; int
+L14:
+    t201 = *p                            ; char
+    t202 = (int) t201                    ; int
+    param t202
+    t203 = call isspace, 1               ; int
+    ifFalse t203 goto L15
+    t204 = sp + 1                        ; int
+    sp = t204                            ; int
+L15:
+    t205 = *p                            ; char
+    t206 = (int) t205                    ; int
+    param t206
+    t207 = call ispunct, 1               ; int
+    ifFalse t207 goto L16
+    t208 = pu + 1                        ; int
+    pu = t208                            ; int
+L16:
+L11:
+    t209 = p + 1                         ; char*
+    p = t209                             ; char*
+    goto L10
+L12:
+    param str29
+    param al
+    param dg
+    param sp
+    param pu
+    t210 = call printf, 5                ; int
+    param str31
+    t211 = call atoi, 1                  ; int
+    param str32
+    t212 = call atol, 1                  ; long
+    param str33
+    t213 = call atof, 1                  ; double
+    param str30
+    param t211
+    param t212
+    param t213
+    t214 = call printf, 4                ; int
+    t215 = &end                          ; char**
+    param str34
+    param t215
+    param 16
+    t216 = call strtol, 3                ; long
+    hexval = t216                        ; long
+    param str35
+    param hexval
+    param end
+    t217 = call printf, 3                ; int
+    param -17
+    t218 = call abs, 1                   ; int
+    param 17
+    t219 = call abs, 1                   ; int
+    param str36
+    param t218
+    param t219
+    t220 = call printf, 3                ; int
+    t221 = &nums                         ; int*
+    *t221 = 0                            ; int
+    t222 = t221 + 4                      ; int*
+    *t222 = 0                            ; int
+    t223 = t221 + 8                      ; int*
+    *t223 = 0                            ; int
+    t224 = t221 + 12                     ; int*
+    *t224 = 0                            ; int
+    t225 = t221 + 16                     ; int*
+    *t225 = 0                            ; int
+    *t221 = 1                            ; int
+    t226 = t221 + 4                      ; int*
+    *t226 = 2                            ; int
+    t227 = t221 + 8                      ; int*
+    *t227 = 3                            ; int
+    t228 = t221 + 12                     ; int*
+    *t228 = 4                            ; int
+    t229 = t221 + 16                     ; int*
+    *t229 = 5                            ; int
+    t230 = &copy                         ; int*
+    t231 = &nums                         ; int*
+    t232 = (unsigned int) 20             ; unsigned int
+    param t230
+    param t231
+    param t232
+    t233 = call memcpy, 3                ; void*
+    t234 = &nums                         ; int*
+    t235 = (unsigned int) 20             ; unsigned int
+    param t234
+    param 0
+    param t235
+    t236 = call memset, 3                ; void*
+    t237 = &copy                         ; int*
+    t238 = *t237                         ; int
+    t239 = &copy                         ; int*
+    t240 = t239 + 16                     ; int*
+    t241 = *t240                         ; int
+    t242 = &nums                         ; int*
+    t243 = t242 + 8                      ; int*
+    t244 = *t243                         ; int
+    t245 = &copy                         ; int*
+    t246 = &nums                         ; int*
+    t247 = (unsigned int) 20             ; unsigned int
+    param t245
+    param t246
+    param t247
+    t248 = call memcmp, 3                ; int
+    t249 = t248 > 0                      ; int
+    param str37
+    param t238
+    param t241
+    param t244
+    param t249
+    t250 = call printf, 5                ; int
+    t251 = &copy                         ; int*
+    t252 = 1 * 4                         ; int
+    t253 = t251 + t252                   ; int*
+    t254 = &copy                         ; int*
+    t255 = 3 * 4                         ; int
+    t256 = (unsigned int) t255           ; unsigned int
+    param t253
+    param t254
+    param t256
+    t257 = call memmove, 3               ; void*
+    t258 = &copy                         ; int*
+    t259 = *t258                         ; int
+    t260 = &copy                         ; int*
+    t261 = t260 + 4                      ; int*
+    t262 = *t261                         ; int
+    t263 = &copy                         ; int*
+    t264 = t263 + 8                      ; int*
+    t265 = *t264                         ; int
+    t266 = &copy                         ; int*
+    t267 = t266 + 12                     ; int*
+    t268 = *t267                         ; int
+    t269 = &copy                         ; int*
+    t270 = t269 + 16                     ; int*
+    t271 = *t270                         ; int
+    param str38
+    param t259
+    param t262
+    param t265
+    param t268
+    param t271
+    t272 = call printf, 6                ; int
+    t273 = (unsigned int) 42             ; unsigned int
+    param t273
+    call srand, 1
+    t274 = call rand, 0                  ; int
+    r1 = t274                            ; int
+    t275 = call rand, 0                  ; int
+    r2 = t275                            ; int
+    t276 = (unsigned int) 42             ; unsigned int
+    param t276
+    call srand, 1
+    t278 = call rand, 0                  ; int
+    t279 = r1 == t278                    ; int
+    ifFalse t279 goto L17
+    t280 = call rand, 0                  ; int
+    t281 = r2 == t280                    ; int
+    ifFalse t281 goto L17
+    t277 = 1                             ; int
+    goto L18
+L17:
+    t277 = 0                             ; int
+L18:
+    param str39
+    param t277
+    t282 = call printf, 2                ; int
+    return 0                             ; int
+endfunction

@@ -1,0 +1,136 @@
+; FNS three-address code
+; source: test/24_until_loop.c
+
+.data
+    str0: "%d "
+    str1: "\n"
+    str2: "ran once with n=%d\n"
+    str3: "digits=%d\n"
+    str4: "k=%d odd_sum=%d\n"
+    str5: "%d%d "
+    str6: "collatz(27) steps=%d\n"
+
+.extern
+    printf
+
+.text
+
+function main() : int
+    local i : int (4)
+    local n : int (4)
+    local x : int (4)
+    local digits : int (4)
+    local k : int (4)
+    local odd_sum : int (4)
+    local r : int (4)
+    local c : int (4)
+    local v : int (4)
+    local steps : int (4)
+    i = 0                                ; int
+L1:
+    param str0
+    param i
+    t1 = call printf, 2                  ; int
+    t2 = i + 1                           ; int
+    i = t2                               ; int
+L2:
+    t3 = i == 5                          ; int
+    ifFalse t3 goto L1
+L3:
+    param str1
+    t4 = call printf, 1                  ; int
+    n = 100                              ; int
+L4:
+    param str2
+    param n
+    t5 = call printf, 2                  ; int
+L5:
+    t6 = n > 0                           ; int
+    ifFalse t6 goto L4
+L6:
+    x = 4096                             ; int
+    digits = 0                           ; int
+L7:
+    t7 = digits + 1                      ; int
+    digits = t7                          ; int
+    t8 = x / 10                          ; int
+    x = t8                               ; int
+L8:
+    t9 = x == 0                          ; int
+    ifFalse t9 goto L7
+L9:
+    param str3
+    param digits
+    t10 = call printf, 2                 ; int
+    k = 0                                ; int
+    odd_sum = 0                          ; int
+L10:
+    t11 = k + 1                          ; int
+    k = t11                              ; int
+    t12 = k % 2                          ; int
+    t13 = t12 == 0                       ; int
+    ifFalse t13 goto L13
+    goto L11
+L13:
+    t14 = k > 9                          ; int
+    ifFalse t14 goto L14
+    goto L12
+L14:
+    t15 = odd_sum + k                    ; int
+    odd_sum = t15                        ; int
+L11:
+    t16 = k >= 20                        ; int
+    ifFalse t16 goto L10
+L12:
+    param str4
+    param k
+    param odd_sum
+    t17 = call printf, 3                 ; int
+    r = 0                                ; int
+L15:
+    c = 0                                ; int
+L18:
+    param str5
+    param r
+    param c
+    t18 = call printf, 3                 ; int
+    t19 = c + 1                          ; int
+    c = t19                              ; int
+L19:
+    t20 = c > r                          ; int
+    ifFalse t20 goto L18
+L20:
+    t21 = r + 1                          ; int
+    r = t21                              ; int
+L16:
+    t22 = r == 3                         ; int
+    ifFalse t22 goto L15
+L17:
+    param str1
+    t23 = call printf, 1                 ; int
+    v = 27                               ; int
+    steps = 0                            ; int
+L21:
+    t25 = v % 2                          ; int
+    t26 = t25 == 0                       ; int
+    ifFalse t26 goto L24
+    t27 = v / 2                          ; int
+    t24 = t27                            ; int
+    goto L25
+L24:
+    t28 = 3 * v                          ; int
+    t29 = t28 + 1                        ; int
+    t24 = t29                            ; int
+L25:
+    v = t24                              ; int
+    t30 = steps + 1                      ; int
+    steps = t30                          ; int
+L22:
+    t31 = v == 1                         ; int
+    ifFalse t31 goto L21
+L23:
+    param str6
+    param steps
+    t32 = call printf, 2                 ; int
+    return 0                             ; int
+endfunction

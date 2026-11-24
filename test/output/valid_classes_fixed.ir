@@ -1,0 +1,207 @@
+; FNS three-address code
+; source: test/ir_phase/valid_classes_fixed.cpp
+
+.data
+    global Node_created : int (4) = 0
+    vtable_Shape: Shape_area, Shape__dtor
+    vtable_Square: Square_area, Square__dtor
+
+.extern
+    __fns_new
+    free
+
+.text
+
+function Node_Node(Node* this, int v) : void
+    *this = v                            ; int
+    t1 = this + 4                        ; Node**
+    t2 = (Node*) 0                       ; Node*
+    *t1 = t2                             ; Node*
+    t3 = Node_created + 1                ; int
+    Node_created = t3                    ; int
+    return
+endfunction
+
+function Node_same(Node* this, Node& other) : int
+    t1 = *other                          ; int
+    t2 = *this                           ; int
+    t3 = t1 == t2                        ; int
+    return t3                            ; int
+endfunction
+
+function Node_self(Node* this) : Node*
+    return this                          ; Node*
+endfunction
+
+function Shape_Shape(Shape* this) : void
+    t1 = &vtable_Shape                   ; ptr
+    *this = t1                           ; ptr
+    t2 = this + 4                        ; int*
+    *t2 = 0                              ; int
+    return
+endfunction
+
+function Shape_area(Shape* this) : int
+    return 0                             ; int
+endfunction
+
+function Shape__dtor(Shape* this) : void
+    t1 = &vtable_Shape                   ; ptr
+    *this = t1                           ; ptr
+    t2 = this + 4                        ; int*
+    *t2 = 0                              ; int
+    return
+endfunction
+
+function Square_Square(Square* this) : void
+    param this
+    call Shape_Shape, 1
+    t1 = &vtable_Square                  ; ptr
+    *this = t1                           ; ptr
+    t2 = this + 8                        ; int*
+    *t2 = 2                              ; int
+    return
+endfunction
+
+function Square_area(Square* this) : int
+    t1 = this + 8                        ; int*
+    t2 = *t1                             ; int
+    t3 = this + 8                        ; int*
+    t4 = *t3                             ; int
+    t5 = t2 * t4                         ; int
+    return t5                            ; int
+endfunction
+
+function Square__dtor(Square* this) : void
+    t1 = &vtable_Square                  ; ptr
+    *this = t1                           ; ptr
+    t2 = this + 8                        ; int*
+    *t2 = 0                              ; int
+    param this
+    call Shape__dtor, 1
+    return
+endfunction
+
+function main() : int
+    local a : Node (8)
+    local b : Node (8)
+    local r : int (4)
+    local s : Shape* (4)
+    local arr : Shape* (4)
+    local none : Shape* (4)
+    t1 = &a                              ; Node*
+    param t1
+    param 1
+    call Node_Node, 2
+    t2 = &b                              ; Node*
+    param t2
+    param 2
+    call Node_Node, 2
+    t3 = &a                              ; Node*
+    t4 = t3 + 4                          ; Node**
+    t5 = &b                              ; Node*
+    *t4 = t5                             ; Node*
+    t6 = &a                              ; Node*
+    t7 = &b                              ; Node*
+    param t6
+    param t7
+    t8 = call Node_same, 2               ; int
+    t9 = &a                              ; Node*
+    t10 = t9 + 4                         ; Node**
+    t11 = *t10                           ; Node*
+    t12 = *t11                           ; int
+    t13 = t8 + t12                       ; int
+    t14 = &a                             ; Node*
+    param t14
+    t15 = call Node_self, 1              ; Node*
+    t16 = *t15                           ; int
+    t17 = t13 + t16                      ; int
+    t18 = t17 + Node_created             ; int
+    r = t18                              ; int
+    param 1
+    param 12
+    param 0
+    t19 = call __fns_new, 3              ; void*
+    param t19
+    call Square_Square, 1
+    t20 = (Shape*) t19                   ; Shape*
+    s = t20                              ; Shape*
+    t21 = *s                             ; ptr
+    t22 = *t21                           ; fn*
+    param s
+    t23 = call *t22, 1                   ; int
+    t24 = r + t23                        ; int
+    r = t24                              ; int
+    ifFalse s goto L1
+    t25 = *s                             ; ptr
+    t26 = t25 + 4                        ; ptr
+    t27 = *t26                           ; fn*
+    param s
+    call *t27, 1
+    param s
+    call free, 1
+L1:
+    param 2
+    param 12
+    param 4
+    t28 = call __fns_new, 3              ; void*
+    *t28 = 2                             ; int
+    t29 = t28 + 4                        ; Square*
+    t30 = 0                              ; int
+L2:
+    t31 = t30 >= 2                       ; int
+    if t31 goto L3
+    t32 = t30 * 12                       ; int
+    t33 = t29 + t32                      ; Square*
+    param t33
+    call Square_Square, 1
+    t34 = t30 + 1                        ; int
+    t30 = t34                            ; int
+    goto L2
+L3:
+    t35 = (Shape*) t29                   ; Shape*
+    arr = t35                            ; Shape*
+    ifFalse arr goto L4
+    t36 = arr - 4                        ; Shape*
+    t37 = *t36                           ; int
+    t38 = t37                            ; int
+L5:
+    t39 = t38 <= 0                       ; int
+    if t39 goto L6
+    t40 = t38 - 1                        ; int
+    t38 = t40                            ; int
+    t41 = t38 * 8                        ; int
+    t42 = arr + t41                      ; Shape*
+    t43 = *t42                           ; ptr
+    t44 = t43 + 4                        ; ptr
+    t45 = *t44                           ; fn*
+    param t42
+    call *t45, 1
+    goto L5
+L6:
+    param t36
+    call free, 1
+L4:
+    t46 = (Shape*) 0                     ; Shape*
+    none = t46                           ; Shape*
+    ifFalse none goto L7
+    t47 = *none                          ; ptr
+    t48 = t47 + 4                        ; ptr
+    t49 = *t48                           ; fn*
+    param none
+    call *t49, 1
+    param none
+    call free, 1
+L7:
+    param 4.0
+    t50 = call half, 1                   ; double
+    t51 = (int) t50                      ; int
+    t52 = r + t51                        ; int
+    return t52                           ; int
+endfunction
+
+function half(double y) : double
+    t1 = (double) 2                      ; double
+    t2 = y / t1                          ; double
+    return t2                            ; double
+endfunction

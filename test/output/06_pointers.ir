@@ -1,0 +1,429 @@
+; FNS three-address code
+; source: test/06_pointers.c
+
+.data
+    str0: "%d %d\n"
+    str1: "a=%d\n"
+    str2: "after swap a=%d b=%d\n"
+    str3: "%d %d %d\n"
+    str4: "max %d at index %d\n"
+    str5: "distance %d, q<end %d, q==arr %d\n"
+    str6: "after moves: %d\n"
+    str7: "back one: %d\n"
+    str8: "pointer"
+    str9: "%s len=%d\n"
+    str10: "v=%d **p2=%d\n"
+    str11: "p1 now -> %d, ***p3=%d\n"
+    str12: "pt=(%d,%d)\n"
+    str13: "null pointer ok\n"
+    str14: "via void*: %d\n"
+    str15: "total via int** = %d\n"
+
+.extern
+    printf
+    malloc
+    free
+
+.text
+
+function swap(int* x, int* y) : void
+    local t : int (4)
+    t1 = *x                              ; int
+    t = t1                               ; int
+    t2 = *y                              ; int
+    *x = t2                              ; int
+    *y = t                               ; int
+    return
+endfunction
+
+function set_ptr(int** pp, int* target) : void
+    *pp = target                         ; int*
+    return
+endfunction
+
+function find_max(int* a, int n) : int*
+    local best : int* (4)
+    local p : int* (4)
+    best = a                             ; int*
+    p = a                                ; int*
+L1:
+    t1 = n * 4                           ; int
+    t2 = a + t1                          ; int*
+    t3 = p < t2                          ; int
+    ifFalse t3 goto L3
+    t4 = *p                              ; int
+    t5 = *best                           ; int
+    t6 = t4 > t5                         ; int
+    ifFalse t6 goto L4
+    best = p                             ; int*
+L4:
+L2:
+    t7 = p + 4                           ; int*
+    p = t7                               ; int*
+    goto L1
+L3:
+    return best                          ; int*
+endfunction
+
+function main() : int
+    local a : int (4)
+    local b : int (4)
+    local p : int* (4)
+    local arr : int[6] (24)
+    local q : int* (4)
+    local m : int* (4)
+    local end : int* (4)
+    local s : char[8] (8)
+    local c : char* (4)
+    local v : int (4)
+    local p1 : int* (4)
+    local p2 : int** (4)
+    local p3 : int*** (4)
+    local other : int (4)
+    local pt : struct Point (8)
+    local pp : struct Point* (4)
+    local nothing : int* (4)
+    local vp : void* (4)
+    local back : int* (4)
+    local x1 : int (4)
+    local x2 : int (4)
+    local x3 : int (4)
+    local ptrs : int[3]* (12)
+    local walk : int** (4)
+    local total : int (4)
+    local i : int (4)
+    local rows : int** (4)
+    local i_1 : int (4)
+    local j : int (4)
+    local i_2 : int (4)
+    a = 5                                ; int
+    b = 9                                ; int
+    t1 = &a                              ; int*
+    p = t1                               ; int*
+    t2 = *p                              ; int
+    t3 = *p                              ; int
+    t4 = t3 + 1                          ; int
+    param str0
+    param t2
+    param t4
+    t5 = call printf, 3                  ; int
+    *p = 50                              ; int
+    param str1
+    param a
+    t6 = call printf, 2                  ; int
+    t7 = &a                              ; int*
+    t8 = &b                              ; int*
+    param t7
+    param t8
+    call swap, 2
+    param str2
+    param a
+    param b
+    t9 = call printf, 3                  ; int
+    t10 = &arr                           ; int*
+    *t10 = 0                             ; int
+    t11 = t10 + 4                        ; int*
+    *t11 = 0                             ; int
+    t12 = t10 + 8                        ; int*
+    *t12 = 0                             ; int
+    t13 = t10 + 12                       ; int*
+    *t13 = 0                             ; int
+    t14 = t10 + 16                       ; int*
+    *t14 = 0                             ; int
+    t15 = t10 + 20                       ; int*
+    *t15 = 0                             ; int
+    *t10 = 3                             ; int
+    t16 = t10 + 4                        ; int*
+    *t16 = 8                             ; int
+    t17 = t10 + 8                        ; int*
+    *t17 = 1                             ; int
+    t18 = t10 + 12                       ; int*
+    *t18 = 9                             ; int
+    t19 = t10 + 16                       ; int*
+    *t19 = 4                             ; int
+    t20 = t10 + 20                       ; int*
+    *t20 = 7                             ; int
+    t21 = &arr                           ; int*
+    t22 = (int*) t21                     ; int*
+    q = t22                              ; int*
+    t23 = 2 * 4                          ; int
+    t24 = q + t23                        ; int*
+    t25 = *t24                           ; int
+    t26 = q + 12                         ; int*
+    t27 = *t26                           ; int
+    t28 = &arr                           ; int*
+    t29 = 5 * 4                          ; int
+    t30 = t28 + t29                      ; int*
+    t31 = *t30                           ; int
+    param str3
+    param t25
+    param t27
+    param t31
+    t32 = call printf, 4                 ; int
+    t33 = &arr                           ; int*
+    t34 = (int*) t33                     ; int*
+    param t34
+    param 6
+    t35 = call find_max, 2               ; int*
+    m = t35                              ; int*
+    t36 = *m                             ; int
+    t37 = &arr                           ; int*
+    t38 = m - t37                        ; int
+    t39 = t38 / 4                        ; int
+    t40 = (int) t39                      ; int
+    param str4
+    param t36
+    param t40
+    t41 = call printf, 3                 ; int
+    t42 = &arr                           ; int*
+    t43 = t42 + 20                       ; int*
+    end = t43                            ; int*
+    t44 = end - q                        ; int
+    t45 = t44 / 4                        ; int
+    t46 = (int) t45                      ; int
+    t47 = q < end                        ; int
+    t48 = &arr                           ; int*
+    t49 = q == t48                       ; int
+    param str5
+    param t46
+    param t47
+    param t49
+    t50 = call printf, 4                 ; int
+    t51 = q + 4                          ; int*
+    q = t51                              ; int*
+    t52 = 2 * 4                          ; int
+    t53 = q + t52                        ; int*
+    q = t53                              ; int*
+    t54 = *q                             ; int
+    param str6
+    param t54
+    t55 = call printf, 2                 ; int
+    t56 = q - 4                          ; int*
+    q = t56                              ; int*
+    t57 = *q                             ; int
+    param str7
+    param t57
+    t58 = call printf, 2                 ; int
+    t59 = &s                             ; char*
+    *t59 = 0                             ; char
+    t60 = t59 + 1                        ; char*
+    *t60 = 0                             ; char
+    t61 = t59 + 2                        ; char*
+    *t61 = 0                             ; char
+    t62 = t59 + 3                        ; char*
+    *t62 = 0                             ; char
+    t63 = t59 + 4                        ; char*
+    *t63 = 0                             ; char
+    t64 = t59 + 5                        ; char*
+    *t64 = 0                             ; char
+    t65 = t59 + 6                        ; char*
+    *t65 = 0                             ; char
+    t66 = t59 + 7                        ; char*
+    *t66 = 0                             ; char
+    copy t59, str8, 8                    ; char[]
+    t67 = &s                             ; char*
+    t68 = (char*) t67                    ; char*
+    c = t68                              ; char*
+L5:
+    t69 = *c                             ; char
+    ifFalse t69 goto L6
+    t70 = *c                             ; char
+    t71 = (int) t70                      ; int
+    t72 = t71 - 32                       ; int
+    t73 = (char) t72                     ; char
+    *c = t73                             ; char
+    t74 = c + 1                          ; char*
+    c = t74                              ; char*
+    goto L5
+L6:
+    t75 = &s                             ; char*
+    t76 = &s                             ; char*
+    t77 = c - t76                        ; int
+    t78 = (int) t77                      ; int
+    param str9
+    param t75
+    param t78
+    t79 = call printf, 3                 ; int
+    v = 1                                ; int
+    t80 = &v                             ; int*
+    p1 = t80                             ; int*
+    t81 = &p1                            ; int**
+    p2 = t81                             ; int**
+    t82 = &p2                            ; int***
+    p3 = t82                             ; int***
+    t83 = *p3                            ; int**
+    t84 = *t83                           ; int*
+    *t84 = 77                            ; int
+    t85 = *p2                            ; int*
+    t86 = *t85                           ; int
+    param str10
+    param v
+    param t86
+    t87 = call printf, 3                 ; int
+    other = 123                          ; int
+    t88 = &other                         ; int*
+    param p2
+    param t88
+    call set_ptr, 2
+    t89 = *p1                            ; int
+    t90 = *p3                            ; int**
+    t91 = *t90                           ; int*
+    t92 = *t91                           ; int
+    param str11
+    param t89
+    param t92
+    t93 = call printf, 3                 ; int
+    t94 = &pt                            ; struct Point*
+    *t94 = 0                             ; int
+    t95 = t94 + 4                        ; int*
+    *t95 = 0                             ; int
+    *t94 = 2                             ; int
+    t96 = t94 + 4                        ; int*
+    *t96 = 3                             ; int
+    t97 = &pt                            ; struct Point*
+    pp = t97                             ; struct Point*
+    *pp = 20                             ; int
+    t98 = pp + 4                         ; int*
+    t99 = *t98                           ; int
+    t100 = t99 + 30                      ; int
+    *t98 = t100                          ; int
+    t101 = &pt                           ; struct Point*
+    t102 = *t101                         ; int
+    t103 = &pt                           ; struct Point*
+    t104 = t103 + 4                      ; int*
+    t105 = *t104                         ; int
+    param str12
+    param t102
+    param t105
+    t106 = call printf, 3                ; int
+    t107 = (void*) 0                     ; void*
+    t108 = (int*) t107                   ; int*
+    nothing = t108                       ; int*
+    t109 = (void*) 0                     ; void*
+    t110 = (int*) t109                   ; int*
+    t111 = nothing == t110               ; int
+    ifFalse t111 goto L7
+    param str13
+    t112 = call printf, 1                ; int
+L7:
+    t113 = &b                            ; int*
+    vp = t113                            ; void*
+    t114 = (int*) vp                     ; int*
+    back = t114                          ; int*
+    t115 = *back                         ; int
+    param str14
+    param t115
+    t116 = call printf, 2                ; int
+    x1 = 1                               ; int
+    x2 = 2                               ; int
+    x3 = 3                               ; int
+    t117 = &ptrs                         ; int**
+    *t117 = 0                            ; int*
+    t118 = t117 + 4                      ; int**
+    *t118 = 0                            ; int*
+    t119 = t117 + 8                      ; int**
+    *t119 = 0                            ; int*
+    t120 = &x1                           ; int*
+    *t117 = t120                         ; int*
+    t121 = t117 + 4                      ; int**
+    t122 = &x2                           ; int*
+    *t121 = t122                         ; int*
+    t123 = t117 + 8                      ; int**
+    t124 = &x3                           ; int*
+    *t123 = t124                         ; int*
+    t125 = &ptrs                         ; int**
+    t126 = (int**) t125                  ; int**
+    walk = t126                          ; int**
+    total = 0                            ; int
+    i = 0                                ; int
+L8:
+    t127 = i < 3                         ; int
+    ifFalse t127 goto L10
+    t128 = i * 4                         ; int
+    t129 = walk + t128                   ; int**
+    t130 = *t129                         ; int*
+    t131 = *t130                         ; int
+    t132 = total + t131                  ; int
+    total = t132                         ; int
+L9:
+    t133 = i + 1                         ; int
+    i = t133                             ; int
+    goto L8
+L10:
+    param str15
+    param total
+    t134 = call printf, 2                ; int
+    t135 = 3 * 4                         ; int
+    t136 = (unsigned int) t135           ; unsigned int
+    param t136
+    t137 = call malloc, 1                ; void*
+    t138 = (int**) t137                  ; int**
+    rows = t138                          ; int**
+    i_1 = 0                              ; int
+L11:
+    t139 = i_1 < 3                       ; int
+    ifFalse t139 goto L13
+    t140 = i_1 * 4                       ; int
+    t141 = rows + t140                   ; int**
+    t142 = i_1 + 1                       ; int
+    t143 = t142 * 4                      ; int
+    t144 = (unsigned int) t143           ; unsigned int
+    param t144
+    t145 = call malloc, 1                ; void*
+    t146 = (int*) t145                   ; int*
+    *t141 = t146                         ; int*
+    j = 0                                ; int
+L14:
+    t147 = j <= i_1                      ; int
+    ifFalse t147 goto L16
+    t148 = i_1 * 4                       ; int
+    t149 = rows + t148                   ; int**
+    t150 = *t149                         ; int*
+    t151 = j * 4                         ; int
+    t152 = t150 + t151                   ; int*
+    t153 = i_1 * 10                      ; int
+    t154 = t153 + j                      ; int
+    *t152 = t154                         ; int
+L15:
+    t155 = j + 1                         ; int
+    j = t155                             ; int
+    goto L14
+L16:
+L12:
+    t156 = i_1 + 1                       ; int
+    i_1 = t156                           ; int
+    goto L11
+L13:
+    t157 = *rows                         ; int*
+    t158 = *t157                         ; int
+    t159 = rows + 4                      ; int**
+    t160 = *t159                         ; int*
+    t161 = t160 + 4                      ; int*
+    t162 = *t161                         ; int
+    t163 = rows + 8                      ; int**
+    t164 = *t163                         ; int*
+    t165 = t164 + 8                      ; int*
+    t166 = *t165                         ; int
+    param str3
+    param t158
+    param t162
+    param t166
+    t167 = call printf, 4                ; int
+    i_2 = 0                              ; int
+L17:
+    t168 = i_2 < 3                       ; int
+    ifFalse t168 goto L19
+    t169 = i_2 * 4                       ; int
+    t170 = rows + t169                   ; int**
+    t171 = *t170                         ; int*
+    param t171
+    call free, 1
+L18:
+    t172 = i_2 + 1                       ; int
+    i_2 = t172                           ; int
+    goto L17
+L19:
+    param rows
+    call free, 1
+    return 0                             ; int
+endfunction

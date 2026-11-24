@@ -1,0 +1,399 @@
+; FNS three-address code
+; source: test/13_varargs.c
+
+.data
+    str0: "%s"
+    str1: "\n"
+    str2: "%d"
+    str3: "%.3f"
+    str4: "[%s] "
+    str5: "%d %d %d\n"
+    str6: "%.3f %.3f\n"
+    str7: "%d\n"
+    str8: ", "
+    str9: "red"
+    str10: "green"
+    str11: "blue"
+    str12: "-"
+    str13: "solo"
+    str14: "int %d, char %c, str %s, dbl %f, pct %%\n"
+    str15: "abc"
+    str16: "float %f char-promoted %d\n"
+    str17: "INFO"
+    str18: "%d items, %s\n"
+    str19: "ok"
+
+.extern
+    printf
+    putchar
+    vprintf
+
+.text
+
+function sum(int count, ...) : int
+    local ap : char* (4)
+    local total : int (4)
+    local i : int (4)
+    t1 = &__va_args                      ; char*
+    ap = t1                              ; char*
+    total = 0                            ; int
+    i = 0                                ; int
+L1:
+    t2 = i < count                       ; int
+    ifFalse t2 goto L3
+    t3 = 4 + 3                           ; int
+    t4 = t3 / 4                          ; int
+    t5 = t4 * 4                          ; int
+    t6 = ap + t5                         ; char*
+    ap = t6                              ; char*
+    t7 = 4 + 3                           ; int
+    t8 = t7 / 4                          ; int
+    t9 = t8 * 4                          ; int
+    t10 = t6 - t9                        ; char*
+    t11 = (int*) t10                     ; int*
+    t12 = *t11                           ; int
+    t13 = total + t12                    ; int
+    total = t13                          ; int
+L2:
+    t14 = i + 1                          ; int
+    i = t14                              ; int
+    goto L1
+L3:
+    t15 = (char*) 0                      ; char*
+    ap = t15                             ; char*
+    return total                         ; int
+endfunction
+
+function average(int count, ...) : double
+    local ap : char* (4)
+    local total : double (8)
+    local i : int (4)
+    t1 = (double) 0                      ; double
+    total = t1                           ; double
+    t2 = &__va_args                      ; char*
+    ap = t2                              ; char*
+    i = 0                                ; int
+L4:
+    t3 = i < count                       ; int
+    ifFalse t3 goto L6
+    t4 = 8 + 3                           ; int
+    t5 = t4 / 4                          ; int
+    t6 = t5 * 4                          ; int
+    t7 = ap + t6                         ; char*
+    ap = t7                              ; char*
+    t8 = 8 + 3                           ; int
+    t9 = t8 / 4                          ; int
+    t10 = t9 * 4                         ; int
+    t11 = t7 - t10                       ; char*
+    t12 = (double*) t11                  ; double*
+    t13 = *t12                           ; double
+    t14 = total + t13                    ; double
+    total = t14                          ; double
+L5:
+    t15 = i + 1                          ; int
+    i = t15                              ; int
+    goto L4
+L6:
+    t16 = (char*) 0                      ; char*
+    ap = t16                             ; char*
+    ifFalse count goto L7
+    t18 = (double) count                 ; double
+    t19 = total / t18                    ; double
+    t17 = t19                            ; double
+    goto L8
+L7:
+    t20 = (double) 0                     ; double
+    t17 = t20                            ; double
+L8:
+    return t17                           ; double
+endfunction
+
+function max_of(int first, ...) : int
+    local ap : char* (4)
+    local best : int (4)
+    local v : int (4)
+    best = first                         ; int
+    t1 = &__va_args                      ; char*
+    ap = t1                              ; char*
+L9:
+    t2 = 4 + 3                           ; int
+    t3 = t2 / 4                          ; int
+    t4 = t3 * 4                          ; int
+    t5 = ap + t4                         ; char*
+    ap = t5                              ; char*
+    t6 = 4 + 3                           ; int
+    t7 = t6 / 4                          ; int
+    t8 = t7 * 4                          ; int
+    t9 = t5 - t8                         ; char*
+    t10 = (int*) t9                      ; int*
+    t11 = *t10                           ; int
+    v = t11                              ; int
+    t12 = t11 != -1                      ; int
+    ifFalse t12 goto L10
+    t13 = v > best                       ; int
+    ifFalse t13 goto L11
+    best = v                             ; int
+L11:
+    goto L9
+L10:
+    t14 = (char*) 0                      ; char*
+    ap = t14                             ; char*
+    return best                          ; int
+endfunction
+
+function join(char* sep, int n, ...) : void
+    local ap : char* (4)
+    local i : int (4)
+    t1 = &__va_args                      ; char*
+    ap = t1                              ; char*
+    i = 0                                ; int
+L12:
+    t2 = i < n                           ; int
+    ifFalse t2 goto L14
+    ifFalse i goto L15
+    param str0
+    param sep
+    t3 = call printf, 2                  ; int
+L15:
+    t4 = 4 + 3                           ; int
+    t5 = t4 / 4                          ; int
+    t6 = t5 * 4                          ; int
+    t7 = ap + t6                         ; char*
+    ap = t7                              ; char*
+    t8 = 4 + 3                           ; int
+    t9 = t8 / 4                          ; int
+    t10 = t9 * 4                         ; int
+    t11 = t7 - t10                       ; char*
+    t12 = (char**) t11                   ; char**
+    t13 = *t12                           ; char*
+    param str0
+    param t13
+    t14 = call printf, 2                 ; int
+L13:
+    t15 = i + 1                          ; int
+    i = t15                              ; int
+    goto L12
+L14:
+    t16 = (char*) 0                      ; char*
+    ap = t16                             ; char*
+    param str1
+    t17 = call printf, 1                 ; int
+    return
+endfunction
+
+function mini_printf(char* fmt, ...) : void
+    local ap : char* (4)
+    local p : char* (4)
+    t1 = &__va_args                      ; char*
+    ap = t1                              ; char*
+    p = fmt                              ; char*
+L16:
+    t2 = *p                              ; char
+    ifFalse t2 goto L18
+    t3 = *p                              ; char
+    t4 = (int) t3                        ; int
+    t5 = (int) 37                        ; int
+    t6 = t4 != t5                        ; int
+    ifFalse t6 goto L19
+    t7 = *p                              ; char
+    t8 = (int) t7                        ; int
+    param t8
+    t9 = call putchar, 1                 ; int
+    goto L17
+L19:
+    t10 = p + 1                          ; char*
+    p = t10                              ; char*
+    t11 = *p                             ; char
+    t12 = (int) t11                      ; int
+    t13 = (int) 100                      ; int
+    t14 = t12 == t13                     ; int
+    ifFalse t14 goto L20
+    t15 = 4 + 3                          ; int
+    t16 = t15 / 4                        ; int
+    t17 = t16 * 4                        ; int
+    t18 = ap + t17                       ; char*
+    ap = t18                             ; char*
+    t19 = 4 + 3                          ; int
+    t20 = t19 / 4                        ; int
+    t21 = t20 * 4                        ; int
+    t22 = t18 - t21                      ; char*
+    t23 = (int*) t22                     ; int*
+    t24 = *t23                           ; int
+    param str2
+    param t24
+    t25 = call printf, 2                 ; int
+    goto L21
+L20:
+    t26 = *p                             ; char
+    t27 = (int) t26                      ; int
+    t28 = (int) 99                       ; int
+    t29 = t27 == t28                     ; int
+    ifFalse t29 goto L22
+    t30 = 4 + 3                          ; int
+    t31 = t30 / 4                        ; int
+    t32 = t31 * 4                        ; int
+    t33 = ap + t32                       ; char*
+    ap = t33                             ; char*
+    t34 = 4 + 3                          ; int
+    t35 = t34 / 4                        ; int
+    t36 = t35 * 4                        ; int
+    t37 = t33 - t36                      ; char*
+    t38 = (int*) t37                     ; int*
+    t39 = *t38                           ; int
+    param t39
+    t40 = call putchar, 1                ; int
+    goto L23
+L22:
+    t41 = *p                             ; char
+    t42 = (int) t41                      ; int
+    t43 = (int) 115                      ; int
+    t44 = t42 == t43                     ; int
+    ifFalse t44 goto L24
+    t45 = 4 + 3                          ; int
+    t46 = t45 / 4                        ; int
+    t47 = t46 * 4                        ; int
+    t48 = ap + t47                       ; char*
+    ap = t48                             ; char*
+    t49 = 4 + 3                          ; int
+    t50 = t49 / 4                        ; int
+    t51 = t50 * 4                        ; int
+    t52 = t48 - t51                      ; char*
+    t53 = (char**) t52                   ; char**
+    t54 = *t53                           ; char*
+    param str0
+    param t54
+    t55 = call printf, 2                 ; int
+    goto L25
+L24:
+    t56 = *p                             ; char
+    t57 = (int) t56                      ; int
+    t58 = (int) 102                      ; int
+    t59 = t57 == t58                     ; int
+    ifFalse t59 goto L26
+    t60 = 8 + 3                          ; int
+    t61 = t60 / 4                        ; int
+    t62 = t61 * 4                        ; int
+    t63 = ap + t62                       ; char*
+    ap = t63                             ; char*
+    t64 = 8 + 3                          ; int
+    t65 = t64 / 4                        ; int
+    t66 = t65 * 4                        ; int
+    t67 = t63 - t66                      ; char*
+    t68 = (double*) t67                  ; double*
+    t69 = *t68                           ; double
+    param str3
+    param t69
+    t70 = call printf, 2                 ; int
+    goto L27
+L26:
+    t71 = *p                             ; char
+    t72 = (int) t71                      ; int
+    param t72
+    t73 = call putchar, 1                ; int
+L27:
+L25:
+L23:
+L21:
+L17:
+    t74 = p + 1                          ; char*
+    p = t74                              ; char*
+    goto L16
+L18:
+    t75 = (char*) 0                      ; char*
+    ap = t75                             ; char*
+    return
+endfunction
+
+function log_msg(char* level, char* fmt, ...) : void
+    local ap : char* (4)
+    t1 = &__va_args                      ; char*
+    ap = t1                              ; char*
+    param str4
+    param level
+    t2 = call printf, 2                  ; int
+    param fmt
+    param ap
+    t3 = call vprintf, 2                 ; int
+    t4 = (char*) 0                       ; char*
+    ap = t4                              ; char*
+    return
+endfunction
+
+function main() : int
+    local small : float (4)
+    param 0
+    t1 = call sum, 1                     ; int
+    param 3
+    param 1
+    param 2
+    param 3
+    t2 = call sum, 4                     ; int
+    param 6
+    param 10
+    param 20
+    param 30
+    param 40
+    param 50
+    param 60
+    t3 = call sum, 7                     ; int
+    param str5
+    param t1
+    param t2
+    param t3
+    t4 = call printf, 4                  ; int
+    param 2
+    param 1.5
+    param 2.5
+    t5 = call average, 3                 ; double
+    param 4
+    param 1.0
+    param 2.0
+    param 3.0
+    param 4.5
+    t6 = call average, 5                 ; double
+    param str6
+    param t5
+    param t6
+    t7 = call printf, 3                  ; int
+    param 3
+    param 17
+    param 5
+    param 22
+    param 9
+    param -1
+    t8 = call max_of, 6                  ; int
+    param str7
+    param t8
+    t9 = call printf, 2                  ; int
+    param str8
+    param 3
+    param str9
+    param str10
+    param str11
+    call join, 5
+    param str12
+    param 1
+    param str13
+    call join, 3
+    t10 = (int) 107                      ; int
+    param str14
+    param -45
+    param t10
+    param str15
+    param 2.5
+    call mini_printf, 5
+    small = 1.25f                        ; float
+    t11 = (double) small                 ; double
+    t12 = (char) 65                      ; char
+    t13 = (int) t12                      ; int
+    param str16
+    param t11
+    param t13
+    call mini_printf, 3
+    param str17
+    param str18
+    param 4
+    param str19
+    call log_msg, 4
+    return 0                             ; int
+endfunction

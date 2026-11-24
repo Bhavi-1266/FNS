@@ -1,0 +1,4 @@
+Errors:
+  line 17: jump to case label crosses initialization of 'count'
+  line 23: jump to case label crosses initialization of 'r'
+No assembly generated (2 error(s)).

@@ -1,0 +1,3 @@
+Compiling: test/25_preprocessor.c
+Assembly written to test/output/25_preprocessor.s (1 function(s))
+IR written to test/output/25_preprocessor.ir

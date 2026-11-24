@@ -1,0 +1,396 @@
+; FNS three-address code
+; source: test/01_operators.c
+
+.data
+    str0: "%d %d %d %d %d\n"
+    str1: "%d %d %d %d\n"
+    str2: "%d %d %d\n"
+    str3: "%.3f %.3f %.3f %.3f\n"
+    str4: "%.3f %d\n"
+    str5: "%u %u %u\n"
+    str6: "%d %c %d\n"
+    str7: "%d %d %d %d %d %d\n"
+    str8: "%d %d\n"
+    str9: "%d %d %d %u\n"
+    str10: "%x %X %o\n"
+    str11: "%d "
+    str12: "%d\n"
+    global side_effect_count : int (4) = 0
+
+.extern
+    printf
+
+.text
+
+function touch(int v) : int
+    t1 = side_effect_count + 1           ; int
+    side_effect_count = t1               ; int
+    return v                             ; int
+endfunction
+
+function main() : int
+    local a : int (4)
+    local b : int (4)
+    local c : int (4)
+    local u : unsigned int (4)
+    local w : unsigned int (4)
+    local ch : char (1)
+    local x : double (8)
+    local y : double (8)
+    local r1 : int (4)
+    local r2 : int (4)
+    local r3 : int (4)
+    local k : int (4)
+    local i : int (4)
+    local p : int (4)
+    local q : int (4)
+    local s : int (4)
+    local t : int (4)
+    local m : int (4)
+    local n : int (4)
+    local chain1 : int (4)
+    local chain2 : int (4)
+    a = 17                               ; int
+    b = 5                                ; int
+    c = -17                              ; int
+    u = 3000000000                       ; unsigned int
+    t1 = (unsigned int) 7                ; unsigned int
+    w = t1                               ; unsigned int
+    ch = 65                              ; char
+    x = 7.5                              ; double
+    y = 2.0                              ; double
+    t2 = a + b                           ; int
+    t3 = a - b                           ; int
+    t4 = a * b                           ; int
+    t5 = a / b                           ; int
+    t6 = a % b                           ; int
+    param str0
+    param t2
+    param t3
+    param t4
+    param t5
+    param t6
+    t7 = call printf, 6                  ; int
+    t8 = c / b                           ; int
+    t9 = c % b                           ; int
+    t10 = - b                            ; int
+    t11 = a / t10                        ; int
+    t12 = - b                            ; int
+    t13 = a % t12                        ; int
+    param str1
+    param t8
+    param t9
+    param t11
+    param t13
+    t14 = call printf, 5                 ; int
+    t15 = - a                            ; int
+    t16 = - a                            ; int
+    t17 = - t16                          ; int
+    param str2
+    param t15
+    param a
+    param t17
+    t18 = call printf, 4                 ; int
+    t19 = x + y                          ; double
+    t20 = x - y                          ; double
+    t21 = x * y                          ; double
+    t22 = x / y                          ; double
+    param str3
+    param t19
+    param t20
+    param t21
+    param t22
+    t23 = call printf, 5                 ; int
+    t24 = (double) a                     ; double
+    t25 = t24 / 2.0                      ; double
+    t26 = (double) 3                     ; double
+    t27 = x * t26                        ; double
+    t28 = (int) t27                      ; int
+    param str4
+    param t25
+    param t28
+    t29 = call printf, 3                 ; int
+    t30 = u + u                          ; unsigned int
+    t31 = u / w                          ; unsigned int
+    t32 = (unsigned int) 8               ; unsigned int
+    t33 = w - t32                        ; unsigned int
+    param str5
+    param t30
+    param t31
+    param t33
+    t34 = call printf, 4                 ; int
+    t35 = (int) ch                       ; int
+    t36 = t35 + 1                        ; int
+    t37 = (int) ch                       ; int
+    t38 = t37 + 2                        ; int
+    t39 = (int) 122                      ; int
+    t40 = (int) 97                       ; int
+    t41 = t39 - t40                      ; int
+    param str6
+    param t36
+    param t38
+    param t41
+    t42 = call printf, 4                 ; int
+    t43 = (int) 65                       ; int
+    t44 = (int) 65                       ; int
+    t45 = (int) 0                        ; int
+    t46 = (int) 9                        ; int
+    t47 = (int) 92                       ; int
+    param str0
+    param t43
+    param t44
+    param t45
+    param t46
+    param t47
+    t48 = call printf, 6                 ; int
+    t49 = a == b                         ; int
+    t50 = a != b                         ; int
+    t51 = a < b                          ; int
+    t52 = a > b                          ; int
+    t53 = a <= 17                        ; int
+    t54 = a >= 18                        ; int
+    param str7
+    param t49
+    param t50
+    param t51
+    param t52
+    param t53
+    param t54
+    t55 = call printf, 7                 ; int
+    t56 = u > 5                          ; int
+    t57 = -1 < 0                         ; int
+    param str8
+    param t56
+    param t57
+    t58 = call printf, 3                 ; int
+    side_effect_count = 0                ; int
+    t60 = a > 100                        ; int
+    ifFalse t60 goto L1
+    param 1
+    t61 = call touch, 1                  ; int
+    ifFalse t61 goto L1
+    t59 = 1                              ; int
+    goto L2
+L1:
+    t59 = 0                              ; int
+L2:
+    r1 = t59                             ; int
+    t63 = a > 0                          ; int
+    if t63 goto L3
+    param 1
+    t64 = call touch, 1                  ; int
+    if t64 goto L3
+    t62 = 0                              ; int
+    goto L4
+L3:
+    t62 = 1                              ; int
+L4:
+    r2 = t62                             ; int
+    t66 = a > 0                          ; int
+    ifFalse t66 goto L5
+    param 0
+    t67 = call touch, 1                  ; int
+    ifFalse t67 goto L5
+    t65 = 1                              ; int
+    goto L6
+L5:
+    t65 = 0                              ; int
+L6:
+    r3 = t65                             ; int
+    t68 = ! a                            ; int
+    param str0
+    param r1
+    param r2
+    param r3
+    param t68
+    param side_effect_count
+    t69 = call printf, 6                 ; int
+    t70 = ! 0                            ; int
+    t71 = ! 42                           ; int
+    t72 = ! t71                          ; int
+    ifFalse a goto L9
+    ifFalse b goto L9
+    t74 = 1                              ; int
+    goto L10
+L9:
+    t74 = 0                              ; int
+L10:
+    if t74 goto L7
+    ifFalse c goto L11
+    ifFalse 0 goto L11
+    t75 = 1                              ; int
+    goto L12
+L11:
+    t75 = 0                              ; int
+L12:
+    if t75 goto L7
+    t73 = 0                              ; int
+    goto L8
+L7:
+    t73 = 1                              ; int
+L8:
+    param str2
+    param t70
+    param t72
+    param t73
+    t76 = call printf, 4                 ; int
+    t77 = a & b                          ; int
+    t78 = a | b                          ; int
+    t79 = a ^ b                          ; int
+    t80 = ~ a                            ; int
+    param str1
+    param t77
+    param t78
+    param t79
+    param t80
+    t81 = call printf, 5                 ; int
+    t82 = a << 3                         ; int
+    t83 = a >> 2                         ; int
+    t84 = c >> 2                         ; int
+    t85 = u >> 28                        ; unsigned int
+    param str9
+    param t82
+    param t83
+    param t84
+    param t85
+    t86 = call printf, 5                 ; int
+    t87 = 61680 & 4080                   ; int
+    t88 = 2748 | 273                     ; int
+    t89 = 8 ^ 15                         ; int
+    param str10
+    param t87
+    param t88
+    param t89
+    t90 = call printf, 4                 ; int
+    k = 10                               ; int
+    t91 = k + 5                          ; int
+    k = t91                              ; int
+    param str11
+    param k
+    t92 = call printf, 2                 ; int
+    t93 = k - 3                          ; int
+    k = t93                              ; int
+    param str11
+    param k
+    t94 = call printf, 2                 ; int
+    t95 = k * 4                          ; int
+    k = t95                              ; int
+    param str11
+    param k
+    t96 = call printf, 2                 ; int
+    t97 = k / 6                          ; int
+    k = t97                              ; int
+    param str11
+    param k
+    t98 = call printf, 2                 ; int
+    t99 = k % 5                          ; int
+    k = t99                              ; int
+    param str11
+    param k
+    t100 = call printf, 2                ; int
+    t101 = k << 4                        ; int
+    k = t101                             ; int
+    param str11
+    param k
+    t102 = call printf, 2                ; int
+    t103 = k >> 2                        ; int
+    k = t103                             ; int
+    param str11
+    param k
+    t104 = call printf, 2                ; int
+    t105 = k & 6                         ; int
+    k = t105                             ; int
+    param str11
+    param k
+    t106 = call printf, 2                ; int
+    t107 = k | 9                         ; int
+    k = t107                             ; int
+    param str11
+    param k
+    t108 = call printf, 2                ; int
+    t109 = k ^ 3                         ; int
+    k = t109                             ; int
+    param str12
+    param k
+    t110 = call printf, 2                ; int
+    i = 5                                ; int
+    t111 = i                             ; int
+    t112 = i + 1                         ; int
+    i = t112                             ; int
+    p = t111                             ; int
+    t113 = i + 1                         ; int
+    i = t113                             ; int
+    q = t113                             ; int
+    t114 = i                             ; int
+    t115 = i - 1                         ; int
+    i = t115                             ; int
+    s = t114                             ; int
+    t116 = i - 1                         ; int
+    i = t116                             ; int
+    t = t116                             ; int
+    param str0
+    param p
+    param q
+    param s
+    param t
+    param i
+    t117 = call printf, 6                ; int
+    t119 = a > b                         ; int
+    ifFalse t119 goto L13
+    t118 = a                             ; int
+    goto L14
+L13:
+    t118 = b                             ; int
+L14:
+    m = t118                             ; int
+    a = 3                                ; int
+    b = 4                                ; int
+    t120 = a * b                         ; int
+    n = t120                             ; int
+    t121 = 3 * 4                         ; int
+    t122 = 2 + t121                      ; int
+    t123 = 6 / 2                         ; int
+    t124 = t122 - t123                   ; int
+    t125 = 2 + 3                         ; int
+    t126 = 4 - 6                         ; int
+    t127 = t125 * t126                   ; int
+    t128 = t127 / 2                      ; int
+    param str1
+    param m
+    param n
+    param t124
+    param t128
+    t129 = call printf, 5                ; int
+    t130 = 1 + 2                         ; int
+    t131 = t130 << 1                     ; int
+    t132 = 3 == 3                        ; int
+    t133 = 5 & t132                      ; int
+    param str8
+    param t131
+    param t133
+    t134 = call printf, 3                ; int
+    chain2 = 9                           ; int
+    chain1 = 9                           ; int
+    param str8
+    param chain1
+    param chain2
+    t135 = call printf, 3                ; int
+    t137 = a < b                         ; int
+    ifFalse t137 goto L17
+    t139 = b < 10                        ; int
+    ifFalse t139 goto L19
+    t138 = 1                             ; int
+    goto L20
+L19:
+    t138 = 2                             ; int
+L20:
+    t136 = t138                          ; int
+    goto L18
+L17:
+    t136 = 3                             ; int
+L18:
+    param str12
+    param t136
+    t140 = call printf, 2                ; int
+    return 0                             ; int
+endfunction

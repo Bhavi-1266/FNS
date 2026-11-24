@@ -1,0 +1,3 @@
+Compiling: test/05_arrays.c
+Assembly written to test/output/05_arrays.s (8 function(s))
+IR written to test/output/05_arrays.ir

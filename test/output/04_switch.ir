@@ -1,0 +1,346 @@
+; FNS three-address code
+; source: test/04_switch.c
+
+.data
+    str0: "vowel"
+    str1: "space"
+    str2: "digit"
+    str3: "consonant"
+    str4: "n=%d acc=%d\n"
+    str5: "minus one\n"
+    str6: "other %d\n"
+    str7: "four\n"
+    str8: "seven\n"
+    str9: "seven-or-eight\n"
+    str10: "%d %d %d %d\n"
+    str11: "hi 2u"
+    str12: "%c:%s "
+    str13: "\n"
+    str14: "outer0 inner0\n"
+    str15: "never\n"
+    str16: "i=%d count=%d\n"
+    str17: "done\n"
+    str18: "case 1 sets n=%d\n"
+    str19: "case 2 sets n=%d\n"
+
+.extern
+    printf
+
+.text
+
+function calc(enum Op op, int a, int b) : int
+    t1 = (int) op                        ; int
+    t2 = t1 == 1                         ; int
+    if t2 goto L2
+    t3 = t1 == 2                         ; int
+    if t3 goto L3
+    t4 = t1 == 10                        ; int
+    if t4 goto L4
+    t5 = t1 == 11                        ; int
+    if t5 goto L5
+    goto L1
+L2:
+    t6 = a + b                           ; int
+    return t6                            ; int
+L3:
+    t7 = a - b                           ; int
+    return t7                            ; int
+L4:
+    t8 = a * b                           ; int
+    return t8                            ; int
+L5:
+    ifFalse b goto L6
+    t10 = a / b                          ; int
+    t9 = t10                             ; int
+    goto L7
+L6:
+    t9 = 0                               ; int
+L7:
+    return t9                            ; int
+L1:
+    return -999                          ; int
+endfunction
+
+function kind(char c) : char*
+    t1 = (int) c                         ; int
+    t2 = t1 == 97                        ; int
+    if t2 goto L9
+    t3 = t1 == 101                       ; int
+    if t3 goto L10
+    t4 = t1 == 105                       ; int
+    if t4 goto L11
+    t5 = t1 == 111                       ; int
+    if t5 goto L12
+    t6 = t1 == 117                       ; int
+    if t6 goto L13
+    t7 = t1 == 32                        ; int
+    if t7 goto L14
+    goto L15
+L9:
+L10:
+L11:
+L12:
+L13:
+    return str0                          ; char*
+L14:
+    return str1                          ; char*
+L15:
+    t9 = (int) c                         ; int
+    t10 = (int) 48                       ; int
+    t11 = t9 >= t10                      ; int
+    ifFalse t11 goto L17
+    t12 = (int) c                        ; int
+    t13 = (int) 57                       ; int
+    t14 = t12 <= t13                     ; int
+    ifFalse t14 goto L17
+    t8 = 1                               ; int
+    goto L18
+L17:
+    t8 = 0                               ; int
+L18:
+    ifFalse t8 goto L16
+    return str2                          ; char*
+L16:
+    return str3                          ; char*
+L8:
+    return
+endfunction
+
+function main() : int
+    local n : int (4)
+    local acc : int (4)
+    local vals : int[5] (20)
+    local i : int (4)
+    local word : char* (4)
+    local i_1 : int (4)
+    local count : int (4)
+    local i_2 : int (4)
+    local k : int (4)
+    local n_1 : int (4)
+    n = 0                                ; int
+L19:
+    t1 = n <= 4                          ; int
+    ifFalse t1 goto L21
+    acc = 0                              ; int
+    t2 = n == 0                          ; int
+    if t2 goto L23
+    t3 = n == 1                          ; int
+    if t3 goto L24
+    t4 = n == 2                          ; int
+    if t4 goto L25
+    t5 = n == 3                          ; int
+    if t5 goto L26
+    goto L27
+L23:
+    t6 = acc + 1                         ; int
+    acc = t6                             ; int
+L24:
+    t7 = acc + 10                        ; int
+    acc = t7                             ; int
+L25:
+    t8 = acc + 100                       ; int
+    acc = t8                             ; int
+    goto L22
+L26:
+    t9 = acc + 1000                      ; int
+    acc = t9                             ; int
+L27:
+    t10 = acc + 5                        ; int
+    acc = t10                            ; int
+L22:
+    param str4
+    param n
+    param acc
+    t11 = call printf, 3                 ; int
+L20:
+    t12 = n + 1                          ; int
+    n = t12                              ; int
+    goto L19
+L21:
+    t13 = &vals                          ; int*
+    *t13 = 0                             ; int
+    t14 = t13 + 4                        ; int*
+    *t14 = 0                             ; int
+    t15 = t13 + 8                        ; int*
+    *t15 = 0                             ; int
+    t16 = t13 + 12                       ; int*
+    *t16 = 0                             ; int
+    t17 = t13 + 16                       ; int*
+    *t17 = 0                             ; int
+    *t13 = -1                            ; int
+    t18 = t13 + 4                        ; int*
+    *t18 = 4                             ; int
+    t19 = t13 + 8                        ; int*
+    *t19 = 7                             ; int
+    t20 = t13 + 12                       ; int*
+    *t20 = 8                             ; int
+    t21 = t13 + 16                       ; int*
+    *t21 = 100                           ; int
+    i = 0                                ; int
+L28:
+    t22 = i < 5                          ; int
+    ifFalse t22 goto L30
+    t23 = &vals                          ; int*
+    t24 = i * 4                          ; int
+    t25 = t23 + t24                      ; int*
+    t26 = *t25                           ; int
+    t27 = t26 == -1                      ; int
+    if t27 goto L32
+    t28 = t26 == 4                       ; int
+    if t28 goto L34
+    t29 = t26 == 7                       ; int
+    if t29 goto L35
+    t30 = t26 == 8                       ; int
+    if t30 goto L36
+    goto L33
+L32:
+    param str5
+    t31 = call printf, 1                 ; int
+    goto L31
+L33:
+    t32 = &vals                          ; int*
+    t33 = i * 4                          ; int
+    t34 = t32 + t33                      ; int*
+    t35 = *t34                           ; int
+    param str6
+    param t35
+    t36 = call printf, 2                 ; int
+    goto L31
+L34:
+    param str7
+    t37 = call printf, 1                 ; int
+    goto L31
+L35:
+    param str8
+    t38 = call printf, 1                 ; int
+L36:
+    param str9
+    t39 = call printf, 1                 ; int
+    goto L31
+L31:
+L29:
+    t40 = i + 1                          ; int
+    i = t40                              ; int
+    goto L28
+L30:
+    param 1
+    param 6
+    param 3
+    t41 = call calc, 3                   ; int
+    param 2
+    param 6
+    param 3
+    t42 = call calc, 3                   ; int
+    param 10
+    param 6
+    param 3
+    t43 = call calc, 3                   ; int
+    param 11
+    param 6
+    param 3
+    t44 = call calc, 3                   ; int
+    param str10
+    param t41
+    param t42
+    param t43
+    param t44
+    t45 = call printf, 5                 ; int
+    word = str11                         ; char*
+    i_1 = 0                              ; int
+L37:
+    t46 = word + i_1                     ; char*
+    t47 = *t46                           ; char
+    ifFalse t47 goto L39
+    t48 = word + i_1                     ; char*
+    t49 = *t48                           ; char
+    t50 = (int) t49                      ; int
+    t51 = word + i_1                     ; char*
+    t52 = *t51                           ; char
+    param t52
+    t53 = call kind, 1                   ; char*
+    param str12
+    param t50
+    param t53
+    t54 = call printf, 3                 ; int
+L38:
+    t55 = i_1 + 1                        ; int
+    i_1 = t55                            ; int
+    goto L37
+L39:
+    param str13
+    t56 = call printf, 1                 ; int
+    count = 0                            ; int
+    i_2 = 0                              ; int
+L40:
+    t57 = i_2 < 3                        ; int
+    ifFalse t57 goto L42
+    t58 = i_2 == 0                       ; int
+    if t58 goto L44
+    t59 = i_2 == 1                       ; int
+    if t59 goto L45
+    goto L46
+L44:
+    t60 = count == 0                     ; int
+    if t60 goto L48
+    goto L49
+L48:
+    param str14
+    t61 = call printf, 1                 ; int
+    goto L47
+L49:
+    param str15
+    t62 = call printf, 1                 ; int
+L47:
+    goto L43
+L45:
+    t63 = count + 10                     ; int
+    count = t63                          ; int
+    goto L43
+L46:
+    param str16
+    param i_2
+    param count
+    t64 = call printf, 3                 ; int
+L43:
+L41:
+    t65 = i_2 + 1                        ; int
+    i_2 = t65                            ; int
+    goto L40
+L42:
+    t66 = 42 == 1                        ; int
+    if t66 goto L51
+    goto L50
+L51:
+    param str15
+    t67 = call printf, 1                 ; int
+L50:
+    param str17
+    t68 = call printf, 1                 ; int
+    k = 1                                ; int
+L52:
+    t69 = k <= 2                         ; int
+    ifFalse t69 goto L54
+    t70 = k == 1                         ; int
+    if t70 goto L56
+    t71 = k == 2                         ; int
+    if t71 goto L57
+    goto L55
+L56:
+    n_1 = 10                             ; int
+    param str18
+    param n_1
+    t72 = call printf, 2                 ; int
+L57:
+    t73 = 20 + k                         ; int
+    n_1 = t73                            ; int
+    param str19
+    param n_1
+    t74 = call printf, 2                 ; int
+L55:
+L53:
+    t75 = k + 1                          ; int
+    k = t75                              ; int
+    goto L52
+L54:
+    return 0                             ; int
+endfunction

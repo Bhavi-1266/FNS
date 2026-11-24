@@ -1,0 +1,3 @@
+Compiling: test/33_array_pointer_arith.c
+Assembly written to test/output/33_array_pointer_arith.s (2 function(s))
+IR written to test/output/33_array_pointer_arith.ir

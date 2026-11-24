@@ -1,0 +1,10 @@
+Compiling: test/errors/e03_types.c
+Errors:
+  line 10: incompatible types in initialization: cannot convert 'struct P' to 'int'
+  line 11: void value used in initialization
+  line 13: switch expression must have an integer or enum type
+  line 14: dereference of non-pointer
+  line 16: cannot assign to an array
+  line 17: no member 'z' in P
+  line 17: assignment to non-lvalue
+No assembly generated (7 error(s)).

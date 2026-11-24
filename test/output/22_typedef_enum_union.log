@@ -1,0 +1,3 @@
+Compiling: test/22_typedef_enum_union.c
+Assembly written to test/output/22_typedef_enum_union.s (4 function(s))
+IR written to test/output/22_typedef_enum_union.ir

@@ -1,0 +1,3 @@
+Compiling: test/09_functions_recursion.c
+Assembly written to test/output/09_functions_recursion.s (15 function(s))
+IR written to test/output/09_functions_recursion.ir

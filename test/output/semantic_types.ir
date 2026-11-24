@@ -1,0 +1,38 @@
+; FNS three-address code
+; source: test/ir_phase/semantic_types.c
+
+; Errors (no code generated for this file):
+;   line 10: conflicting declaration of function 'proto'
+;   line 14: redeclaration of 'g'
+;   line 15: redeclaration of 'A'
+;   line 16: duplicate member 'a' in Dup
+;   line 17: member 'inner' has incomplete type 'Rec'
+;   line 5: return with a value in a function returning void
+;   line 6: return without a value in a function returning 'int'
+;   line 7: incompatible types in return: cannot convert 'struct S' to 'int'
+;   line 8: incompatible types in return: cannot convert 'int' to 'struct S'
+;   line 11: redeclaration of 'a'
+;   line 20: incompatible types in assignment: cannot convert 'int' to 'struct S'
+;   line 21: incompatible types in assignment: cannot convert 'struct S' to 'int'
+;   line 22: incompatible types in assignment: cannot convert 'struct T' to 'struct S'
+;   line 23: incompatible types in assignment: cannot convert 'double' to 'int*'
+;   line 24: incompatible types in assignment: cannot convert 'int*' to 'double'
+;   line 25: cannot assign to an array
+;   line 26: void value used in initialization
+;   line 27: void value used in compound assignment
+;   line 28: void value used as an operand of '+'
+;   line 29: dereference of a void pointer
+;   line 30: incompatible types in argument passing: cannot convert 'int' to 'struct S'
+;   line 31: incompatible types in argument passing: cannot convert 'struct T' to 'struct S'
+;   line 32: condition must have a scalar type, got 'struct S'
+;   line 33: condition must have a scalar type, got 'struct S'
+;   line 34: condition must have a scalar type, got 'struct S'
+;   line 35: redeclaration of 'i'
+;   line 36: variable 'v' has incomplete type 'void'
+;   line 37: sizeof applied to an incomplete type
+;   line 38: string literal of 4 bytes does not fit in char[2]
+;   line 39: called object is not a function or function pointer
+;   line 41: function pointer call expects 2 argument(s), got 1
+;   line 42: cannot cast between aggregate and scalar types
+;   line 45: duplicate label 'twice'
+;   line 43: goto to undefined label 'nowhere'

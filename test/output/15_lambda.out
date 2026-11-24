@@ -1,0 +1,15 @@
+81 9 3.50
+by value: 15 (base is now 1000)
+by reference: counter=3
+[=] saw 12, after [&]: a=13 b=14
+mixed: total=24
+immediate: 12
+callback: 144
+tick 0 tick 1 tick 2 
+evens=5
+max3=19
+deduced: 2.50 x 9
+done!
+mutable: 11 12 | 15 20 sum=10 seed=10
+fresh 100
+fresh 101

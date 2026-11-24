@@ -1,0 +1,3 @@
+Compiling: test/14_dynamic_memory.c
+Assembly written to test/output/14_dynamic_memory.s (7 function(s))
+IR written to test/output/14_dynamic_memory.ir

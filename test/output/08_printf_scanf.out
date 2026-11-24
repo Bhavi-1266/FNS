@@ -1,0 +1,19 @@
+read 2 ints: 10 32 sum=42
+initial=Z word=mips_word
+f=1.50 d=2.2500 product=3.375
+hex=255 oct=15
+4 more numbers, total=10
+scanf at EOF returns -1
+[42] [42] [   42] [42   ] [00042] [+42] [ 42]
+[4294967295] [ff] [FF] [0xff] [10] [010]
+[Q] [    Q] [Q  ]
+[text] [    text] [text    ] [te]
+[3.141590] [2] [0.1] [    -1.500] [10.00     ] [+1.00]
+[1.234568e+05] [1.23E-04] [0.0001] [1e+10] [100]
+[ 99.5%] [100%]
+[     7] [8   ] [3.14]
+[-3] [123456] [99] [65]
+abc
+printf returned 4
+id-007-2.2 (10 chars)
+sscanf got 3: 12 apples 30

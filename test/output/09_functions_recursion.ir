@@ -1,0 +1,529 @@
+; FNS three-address code
+; source: test/09_functions_recursion.c
+
+.data
+    str0: "move disk 3 %c->%c\n"
+    str1: "%s "
+    str2: "10! = %d, 12! = %d\n"
+    str3: "fib(%d)=%d "
+    str4: "\n"
+    str5: "gcd(84,36)=%d gcd(17,5)=%d\n"
+    str6: "2^10=%ld 3^13=%ld\n"
+    str7: "ackermann(2,3)=%d\n"
+    str8: "even(10)=%d odd(7)=%d\n"
+    str9: "hanoi(4) moves=%d\n"
+    str10: "abc"
+    str11: "found 23 at %d, 4 at %d\n"
+    str12: "digit sum 98765=%d\n"
+    str13: "avg=%.3f\n"
+    str14: "%d %d\n"
+    str15: "%.2f %.2f\n"
+    global moves : int (4) = 0
+
+.extern
+    printf
+
+.text
+
+function factorial(int n) : int
+    t2 = n <= 1                          ; int
+    ifFalse t2 goto L1
+    t1 = 1                               ; int
+    goto L2
+L1:
+    t3 = n - 1                           ; int
+    param t3
+    t4 = call factorial, 1               ; int
+    t5 = n * t4                          ; int
+    t1 = t5                              ; int
+L2:
+    return t1                            ; int
+endfunction
+
+function fib(int n) : int
+    t2 = n < 2                           ; int
+    ifFalse t2 goto L3
+    t1 = n                               ; int
+    goto L4
+L3:
+    t3 = n - 1                           ; int
+    param t3
+    t4 = call fib, 1                     ; int
+    t5 = n - 2                           ; int
+    param t5
+    t6 = call fib, 1                     ; int
+    t7 = t4 + t6                         ; int
+    t1 = t7                              ; int
+L4:
+    return t1                            ; int
+endfunction
+
+function gcd(int a, int b) : int
+    t2 = b == 0                          ; int
+    ifFalse t2 goto L5
+    t1 = a                               ; int
+    goto L6
+L5:
+    t3 = a % b                           ; int
+    param b
+    param t3
+    t4 = call gcd, 2                     ; int
+    t1 = t4                              ; int
+L6:
+    return t1                            ; int
+endfunction
+
+function power(long base, int e) : long
+    local half : long (4)
+    t1 = e == 0                          ; int
+    ifFalse t1 goto L7
+    t2 = (long) 1                        ; long
+    return t2                            ; long
+L7:
+    t3 = e / 2                           ; int
+    param base
+    param t3
+    t4 = call power, 2                   ; long
+    half = t4                            ; long
+    t6 = e % 2                           ; int
+    ifFalse t6 goto L8
+    t7 = half * half                     ; long
+    t8 = t7 * base                       ; long
+    t5 = t8                              ; long
+    goto L9
+L8:
+    t9 = half * half                     ; long
+    t5 = t9                              ; long
+L9:
+    return t5                            ; long
+endfunction
+
+function ackermann(int m, int n) : int
+    t1 = m == 0                          ; int
+    ifFalse t1 goto L10
+    t2 = n + 1                           ; int
+    return t2                            ; int
+L10:
+    t3 = n == 0                          ; int
+    ifFalse t3 goto L11
+    t4 = m - 1                           ; int
+    param t4
+    param 1
+    t5 = call ackermann, 2               ; int
+    return t5                            ; int
+L11:
+    t6 = m - 1                           ; int
+    t7 = n - 1                           ; int
+    param m
+    param t7
+    t8 = call ackermann, 2               ; int
+    param t6
+    param t8
+    t9 = call ackermann, 2               ; int
+    return t9                            ; int
+endfunction
+
+function is_even(int n) : int
+    t2 = n == 0                          ; int
+    ifFalse t2 goto L12
+    t1 = 1                               ; int
+    goto L13
+L12:
+    t3 = n - 1                           ; int
+    param t3
+    t4 = call is_odd, 1                  ; int
+    t1 = t4                              ; int
+L13:
+    return t1                            ; int
+endfunction
+
+function is_odd(int n) : int
+    t2 = n == 0                          ; int
+    ifFalse t2 goto L14
+    t1 = 0                               ; int
+    goto L15
+L14:
+    t3 = n - 1                           ; int
+    param t3
+    t4 = call is_even, 1                 ; int
+    t1 = t4                              ; int
+L15:
+    return t1                            ; int
+endfunction
+
+function hanoi(int n, char from, char to, char via) : void
+    t1 = n == 0                          ; int
+    ifFalse t1 goto L16
+    return
+L16:
+    t2 = n - 1                           ; int
+    param t2
+    param from
+    param via
+    param to
+    call hanoi, 4
+    t3 = moves + 1                       ; int
+    moves = t3                           ; int
+    t4 = n == 3                          ; int
+    ifFalse t4 goto L17
+    t5 = (int) from                      ; int
+    t6 = (int) to                        ; int
+    param str0
+    param t5
+    param t6
+    t7 = call printf, 3                  ; int
+L17:
+    t8 = n - 1                           ; int
+    param t8
+    param via
+    param to
+    param from
+    call hanoi, 4
+    return
+endfunction
+
+function permute(char* s, int l, int r) : void
+    local i : int (4)
+    local t : char (1)
+    t1 = l == r                          ; int
+    ifFalse t1 goto L18
+    param str1
+    param s
+    t2 = call printf, 2                  ; int
+    return
+L18:
+    i = l                                ; int
+L19:
+    t3 = i <= r                          ; int
+    ifFalse t3 goto L21
+    t4 = s + l                           ; char*
+    t5 = *t4                             ; char
+    t = t5                               ; char
+    t6 = s + l                           ; char*
+    t7 = s + i                           ; char*
+    t8 = *t7                             ; char
+    *t6 = t8                             ; char
+    t9 = s + i                           ; char*
+    *t9 = t                              ; char
+    t10 = l + 1                          ; int
+    param s
+    param t10
+    param r
+    call permute, 3
+    t11 = s + l                          ; char*
+    t12 = *t11                           ; char
+    t = t12                              ; char
+    t13 = s + l                          ; char*
+    t14 = s + i                          ; char*
+    t15 = *t14                           ; char
+    *t13 = t15                           ; char
+    t16 = s + i                          ; char*
+    *t16 = t                             ; char
+L20:
+    t17 = i + 1                          ; int
+    i = t17                              ; int
+    goto L19
+L21:
+    return
+endfunction
+
+function rsearch(int* a, int lo, int hi, int key) : int
+    local mid : int (4)
+    t1 = lo > hi                         ; int
+    ifFalse t1 goto L22
+    return -1                            ; int
+L22:
+    t2 = lo + hi                         ; int
+    t3 = t2 / 2                          ; int
+    mid = t3                             ; int
+    t4 = mid * 4                         ; int
+    t5 = a + t4                          ; int*
+    t6 = *t5                             ; int
+    t7 = t6 == key                       ; int
+    ifFalse t7 goto L23
+    return mid                           ; int
+L23:
+    t9 = mid * 4                         ; int
+    t10 = a + t9                         ; int*
+    t11 = *t10                           ; int
+    t12 = t11 < key                      ; int
+    ifFalse t12 goto L24
+    t13 = mid + 1                        ; int
+    param a
+    param t13
+    param hi
+    param key
+    t14 = call rsearch, 4                ; int
+    t8 = t14                             ; int
+    goto L25
+L24:
+    t15 = mid - 1                        ; int
+    param a
+    param lo
+    param t15
+    param key
+    t16 = call rsearch, 4                ; int
+    t8 = t16                             ; int
+L25:
+    return t8                            ; int
+endfunction
+
+function sum_digits(int n) : int
+    t2 = n < 10                          ; int
+    ifFalse t2 goto L26
+    t1 = n                               ; int
+    goto L27
+L26:
+    t3 = n % 10                          ; int
+    t4 = n / 10                          ; int
+    param t4
+    t5 = call sum_digits, 1              ; int
+    t6 = t3 + t5                         ; int
+    t1 = t6                              ; int
+L27:
+    return t1                            ; int
+endfunction
+
+function average(int a, int b, int c, int d, int e, int f, int g, int h) : double
+    t1 = a + b                           ; int
+    t2 = t1 + c                          ; int
+    t3 = t2 + d                          ; int
+    t4 = t3 + e                          ; int
+    t5 = t4 + f                          ; int
+    t6 = t5 + g                          ; int
+    t7 = t6 + h                          ; int
+    t8 = (double) t7                     ; double
+    t9 = t8 / 8.0                        ; double
+    return t9                            ; double
+endfunction
+
+function fill(int* out, int n, int value) : void
+    local i : int (4)
+    i = 0                                ; int
+L28:
+    t1 = i < n                           ; int
+    ifFalse t1 goto L30
+    t2 = i * 4                           ; int
+    t3 = out + t2                        ; int*
+    t4 = value + i                       ; int
+    *t3 = t4                             ; int
+L29:
+    t5 = i + 1                           ; int
+    i = t5                               ; int
+    goto L28
+L30:
+    return
+endfunction
+
+function scale(double x, float k, char sign) : double
+    t2 = (int) sign                      ; int
+    t3 = (int) 45                        ; int
+    t4 = t2 == t3                        ; int
+    ifFalse t4 goto L31
+    t5 = - x                             ; double
+    t6 = (double) k                      ; double
+    t7 = t5 * t6                         ; double
+    t1 = t7                              ; double
+    goto L32
+L31:
+    t8 = (double) k                      ; double
+    t9 = x * t8                          ; double
+    t1 = t9                              ; double
+L32:
+    return t1                            ; double
+endfunction
+
+function main() : int
+    local i : int (4)
+    local letters : char[4] (4)
+    local sorted : int[10] (40)
+    local buf : int[4] (16)
+    param 10
+    t1 = call factorial, 1               ; int
+    param 12
+    t2 = call factorial, 1               ; int
+    param str2
+    param t1
+    param t2
+    t3 = call printf, 3                  ; int
+    i = 0                                ; int
+L33:
+    t4 = i <= 15                         ; int
+    ifFalse t4 goto L35
+    param i
+    t5 = call fib, 1                     ; int
+    param str3
+    param i
+    param t5
+    t6 = call printf, 3                  ; int
+L34:
+    t7 = i + 3                           ; int
+    i = t7                               ; int
+    goto L33
+L35:
+    param str4
+    t8 = call printf, 1                  ; int
+    param 84
+    param 36
+    t9 = call gcd, 2                     ; int
+    param 17
+    param 5
+    t10 = call gcd, 2                    ; int
+    param str5
+    param t9
+    param t10
+    t11 = call printf, 3                 ; int
+    t12 = (long) 2                       ; long
+    param t12
+    param 10
+    t13 = call power, 2                  ; long
+    t14 = (long) 3                       ; long
+    param t14
+    param 13
+    t15 = call power, 2                  ; long
+    param str6
+    param t13
+    param t15
+    t16 = call printf, 3                 ; int
+    param 2
+    param 3
+    t17 = call ackermann, 2              ; int
+    param str7
+    param t17
+    t18 = call printf, 2                 ; int
+    param 10
+    t19 = call is_even, 1                ; int
+    param 7
+    t20 = call is_odd, 1                 ; int
+    param str8
+    param t19
+    param t20
+    t21 = call printf, 3                 ; int
+    param 4
+    param 65
+    param 67
+    param 66
+    call hanoi, 4
+    param str9
+    param moves
+    t22 = call printf, 2                 ; int
+    t23 = &letters                       ; char*
+    *t23 = 0                             ; char
+    t24 = t23 + 1                        ; char*
+    *t24 = 0                             ; char
+    t25 = t23 + 2                        ; char*
+    *t25 = 0                             ; char
+    t26 = t23 + 3                        ; char*
+    *t26 = 0                             ; char
+    copy t23, str10, 4                   ; char[]
+    t27 = &letters                       ; char*
+    t28 = (char*) t27                    ; char*
+    param t28
+    param 0
+    param 2
+    call permute, 3
+    param str4
+    t29 = call printf, 1                 ; int
+    t30 = &sorted                        ; int*
+    *t30 = 0                             ; int
+    t31 = t30 + 4                        ; int*
+    *t31 = 0                             ; int
+    t32 = t30 + 8                        ; int*
+    *t32 = 0                             ; int
+    t33 = t30 + 12                       ; int*
+    *t33 = 0                             ; int
+    t34 = t30 + 16                       ; int*
+    *t34 = 0                             ; int
+    t35 = t30 + 20                       ; int*
+    *t35 = 0                             ; int
+    t36 = t30 + 24                       ; int*
+    *t36 = 0                             ; int
+    t37 = t30 + 28                       ; int*
+    *t37 = 0                             ; int
+    t38 = t30 + 32                       ; int*
+    *t38 = 0                             ; int
+    t39 = t30 + 36                       ; int*
+    *t39 = 0                             ; int
+    *t30 = 2                             ; int
+    t40 = t30 + 4                        ; int*
+    *t40 = 5                             ; int
+    t41 = t30 + 8                        ; int*
+    *t41 = 8                             ; int
+    t42 = t30 + 12                       ; int*
+    *t42 = 12                            ; int
+    t43 = t30 + 16                       ; int*
+    *t43 = 16                            ; int
+    t44 = t30 + 20                       ; int*
+    *t44 = 23                            ; int
+    t45 = t30 + 24                       ; int*
+    *t45 = 38                            ; int
+    t46 = t30 + 28                       ; int*
+    *t46 = 56                            ; int
+    t47 = t30 + 32                       ; int*
+    *t47 = 72                            ; int
+    t48 = t30 + 36                       ; int*
+    *t48 = 91                            ; int
+    t49 = &sorted                        ; int*
+    t50 = (int*) t49                     ; int*
+    param t50
+    param 0
+    param 9
+    param 23
+    t51 = call rsearch, 4                ; int
+    t52 = &sorted                        ; int*
+    t53 = (int*) t52                     ; int*
+    param t53
+    param 0
+    param 9
+    param 4
+    t54 = call rsearch, 4                ; int
+    param str11
+    param t51
+    param t54
+    t55 = call printf, 3                 ; int
+    param 98765
+    t56 = call sum_digits, 1             ; int
+    param str12
+    param t56
+    t57 = call printf, 2                 ; int
+    param 1
+    param 2
+    param 3
+    param 4
+    param 5
+    param 6
+    param 7
+    param 9
+    t58 = call average, 8                ; double
+    param str13
+    param t58
+    t59 = call printf, 2                 ; int
+    t60 = &buf                           ; int*
+    t61 = (int*) t60                     ; int*
+    param t61
+    param 4
+    param 100
+    call fill, 3
+    t62 = &buf                           ; int*
+    t63 = *t62                           ; int
+    t64 = &buf                           ; int*
+    t65 = t64 + 12                       ; int*
+    t66 = *t65                           ; int
+    param str14
+    param t63
+    param t66
+    t67 = call printf, 3                 ; int
+    param 2.0
+    param 1.5f
+    param 43
+    t68 = call scale, 3                  ; double
+    param 2.0
+    param 1.5f
+    param 45
+    t69 = call scale, 3                  ; double
+    param str15
+    param t68
+    param t69
+    t70 = call printf, 3                 ; int
+    return 0                             ; int
+endfunction

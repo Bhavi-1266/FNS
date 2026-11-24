@@ -1,0 +1,457 @@
+; FNS three-address code
+; source: test/12_function_pointers.c
+
+.data
+    str0: "<%d>"
+    str1: "%d %d\n"
+    str2: "%d\n"
+    str3: "add"
+    str4: "sub"
+    str5: "mul"
+    str6: "max"
+    str7: "%s(7,3)=%d "
+    str8: "\n"
+    str9: "sum=%d product=%d max=%d\n"
+    str10: "%d "
+    str11: "%.2f\n"
+    str12: "%d %d %d\n"
+    str13: "none is %s\n"
+    str14: "null"
+    str15: "set"
+    str16: "raw: %d %d twice: %d\n"
+    str17: "through pp: %d\n"
+
+.extern
+    printf
+    qsort
+
+.text
+
+function add(int a, int b) : int
+    t1 = a + b                           ; int
+    return t1                            ; int
+endfunction
+
+function sub(int a, int b) : int
+    t1 = a - b                           ; int
+    return t1                            ; int
+endfunction
+
+function mul(int a, int b) : int
+    t1 = a * b                           ; int
+    return t1                            ; int
+endfunction
+
+function maxi(int a, int b) : int
+    t2 = a > b                           ; int
+    ifFalse t2 goto L1
+    t1 = a                               ; int
+    goto L2
+L1:
+    t1 = b                               ; int
+L2:
+    return t1                            ; int
+endfunction
+
+function fold(int* a, int n, fn* f, int init) : int
+    local acc : int (4)
+    local i : int (4)
+    acc = init                           ; int
+    i = 0                                ; int
+L3:
+    t1 = i < n                           ; int
+    ifFalse t1 goto L5
+    t2 = i * 4                           ; int
+    t3 = a + t2                          ; int*
+    t4 = *t3                             ; int
+    param acc
+    param t4
+    t5 = call *f, 2                      ; int
+    acc = t5                             ; int
+L4:
+    t6 = i + 1                           ; int
+    i = t6                               ; int
+    goto L3
+L5:
+    return acc                           ; int
+endfunction
+
+function for_each(int* a, int n, fn* visit) : void
+    local i : int (4)
+    i = 0                                ; int
+L6:
+    t1 = i < n                           ; int
+    ifFalse t1 goto L8
+    t2 = i * 4                           ; int
+    t3 = a + t2                          ; int*
+    t4 = *t3                             ; int
+    param t4
+    call *visit, 1
+L7:
+    t5 = i + 1                           ; int
+    i = t5                               ; int
+    goto L6
+L8:
+    return
+endfunction
+
+function show(int x) : void
+    param str0
+    param x
+    t1 = call printf, 2                  ; int
+    return
+endfunction
+
+function show_square(int x) : void
+    t1 = x * x                           ; int
+    param str0
+    param t1
+    t2 = call printf, 2                  ; int
+    return
+endfunction
+
+function cmp_asc(void* p, void* q) : int
+    t1 = (int*) p                        ; int*
+    t2 = *t1                             ; int
+    t3 = (int*) q                        ; int*
+    t4 = *t3                             ; int
+    t5 = t2 - t4                         ; int
+    return t5                            ; int
+endfunction
+
+function cmp_desc(void* p, void* q) : int
+    t1 = (int*) q                        ; int*
+    t2 = *t1                             ; int
+    t3 = (int*) p                        ; int*
+    t4 = *t3                             ; int
+    t5 = t2 - t4                         ; int
+    return t5                            ; int
+endfunction
+
+function apply_d(fn* g, double v) : double
+    param v
+    t1 = call *g, 1                      ; double
+    return t1                            ; double
+endfunction
+
+function half(double v) : double
+    t1 = (double) 2                      ; double
+    t2 = v / t1                          ; double
+    return t2                            ; double
+endfunction
+
+function choose_raw(char op) : fn*
+    t2 = (int) op                        ; int
+    t3 = (int) 43                        ; int
+    t4 = t2 == t3                        ; int
+    ifFalse t4 goto L9
+    t1 = add                             ; fn*
+    goto L10
+L9:
+    t1 = sub                             ; fn*
+L10:
+    return t1                            ; fn*
+endfunction
+
+function twice(fn** pp, int x) : int
+    t1 = *pp                             ; fn*
+    t2 = *pp                             ; fn*
+    param x
+    param x
+    t3 = call *t2, 2                     ; int
+    param t3
+    param x
+    t4 = call *t1, 2                     ; int
+    return t4                            ; int
+endfunction
+
+function choose(char op) : fn*
+    t1 = (int) op                        ; int
+    t2 = t1 == 43                        ; int
+    if t2 goto L12
+    t3 = t1 == 45                        ; int
+    if t3 goto L13
+    goto L14
+L12:
+    return add                           ; fn*
+L13:
+    return sub                           ; fn*
+L14:
+    return mul                           ; fn*
+L11:
+    return
+endfunction
+
+function main() : int
+    local fp : fn* (4)
+    local table : fn[4]* (16)
+    local names : char[4]* (16)
+    local i : int (4)
+    local data : int[6] (24)
+    local i_1 : int (4)
+    local i_2 : int (4)
+    local none : fn* (4)
+    local raw : fn* (4)
+    local pp : fn** (4)
+    fp = add                             ; fn*
+    param 2
+    param 3
+    t1 = call *fp, 2                     ; int
+    param 10
+    param 4
+    t2 = call *fp, 2                     ; int
+    param str1
+    param t1
+    param t2
+    t3 = call printf, 3                  ; int
+    fp = sub                             ; fn*
+    param 2
+    param 3
+    t4 = call *fp, 2                     ; int
+    param str2
+    param t4
+    t5 = call printf, 2                  ; int
+    t6 = &table                          ; fn**
+    *t6 = 0                              ; fn*
+    t7 = t6 + 4                          ; fn**
+    *t7 = 0                              ; fn*
+    t8 = t6 + 8                          ; fn**
+    *t8 = 0                              ; fn*
+    t9 = t6 + 12                         ; fn**
+    *t9 = 0                              ; fn*
+    *t6 = add                            ; fn*
+    t10 = t6 + 4                         ; fn**
+    *t10 = sub                           ; fn*
+    t11 = t6 + 8                         ; fn**
+    *t11 = mul                           ; fn*
+    t12 = t6 + 12                        ; fn**
+    *t12 = maxi                          ; fn*
+    t13 = &names                         ; char**
+    *t13 = 0                             ; char*
+    t14 = t13 + 4                        ; char**
+    *t14 = 0                             ; char*
+    t15 = t13 + 8                        ; char**
+    *t15 = 0                             ; char*
+    t16 = t13 + 12                       ; char**
+    *t16 = 0                             ; char*
+    *t13 = str3                          ; char*
+    t17 = t13 + 4                        ; char**
+    *t17 = str4                          ; char*
+    t18 = t13 + 8                        ; char**
+    *t18 = str5                          ; char*
+    t19 = t13 + 12                       ; char**
+    *t19 = str6                          ; char*
+    i = 0                                ; int
+L15:
+    t20 = i < 4                          ; int
+    ifFalse t20 goto L17
+    t21 = &names                         ; char**
+    t22 = i * 4                          ; int
+    t23 = t21 + t22                      ; char**
+    t24 = *t23                           ; char*
+    t25 = &table                         ; fn**
+    t26 = i * 4                          ; int
+    t27 = t25 + t26                      ; fn**
+    t28 = *t27                           ; fn*
+    param 7
+    param 3
+    t29 = call *t28, 2                   ; int
+    param str7
+    param t24
+    param t29
+    t30 = call printf, 3                 ; int
+L16:
+    t31 = i + 1                          ; int
+    i = t31                              ; int
+    goto L15
+L17:
+    param str8
+    t32 = call printf, 1                 ; int
+    t33 = &data                          ; int*
+    *t33 = 0                             ; int
+    t34 = t33 + 4                        ; int*
+    *t34 = 0                             ; int
+    t35 = t33 + 8                        ; int*
+    *t35 = 0                             ; int
+    t36 = t33 + 12                       ; int*
+    *t36 = 0                             ; int
+    t37 = t33 + 16                       ; int*
+    *t37 = 0                             ; int
+    t38 = t33 + 20                       ; int*
+    *t38 = 0                             ; int
+    *t33 = 5                             ; int
+    t39 = t33 + 4                        ; int*
+    *t39 = 3                             ; int
+    t40 = t33 + 8                        ; int*
+    *t40 = 9                             ; int
+    t41 = t33 + 12                       ; int*
+    *t41 = 1                             ; int
+    t42 = t33 + 16                       ; int*
+    *t42 = 7                             ; int
+    t43 = t33 + 20                       ; int*
+    *t43 = 2                             ; int
+    t44 = &data                          ; int*
+    t45 = (int*) t44                     ; int*
+    param t45
+    param 6
+    param add
+    param 0
+    t46 = call fold, 4                   ; int
+    t47 = &data                          ; int*
+    t48 = (int*) t47                     ; int*
+    param t48
+    param 6
+    param mul
+    param 1
+    t49 = call fold, 4                   ; int
+    t50 = &data                          ; int*
+    t51 = (int*) t50                     ; int*
+    param t51
+    param 6
+    param maxi
+    param 0
+    t52 = call fold, 4                   ; int
+    param str9
+    param t46
+    param t49
+    param t52
+    t53 = call printf, 4                 ; int
+    t54 = &data                          ; int*
+    t55 = (int*) t54                     ; int*
+    param t55
+    param 6
+    param show
+    call for_each, 3
+    param str8
+    t56 = call printf, 1                 ; int
+    t57 = &data                          ; int*
+    t58 = (int*) t57                     ; int*
+    param t58
+    param 3
+    param show_square
+    call for_each, 3
+    param str8
+    t59 = call printf, 1                 ; int
+    t60 = &data                          ; int*
+    t61 = (unsigned int) 6               ; unsigned int
+    t62 = (unsigned int) 4               ; unsigned int
+    param t60
+    param t61
+    param t62
+    param cmp_asc
+    call qsort, 4
+    i_1 = 0                              ; int
+L18:
+    t63 = i_1 < 6                        ; int
+    ifFalse t63 goto L20
+    t64 = &data                          ; int*
+    t65 = i_1 * 4                        ; int
+    t66 = t64 + t65                      ; int*
+    t67 = *t66                           ; int
+    param str10
+    param t67
+    t68 = call printf, 2                 ; int
+L19:
+    t69 = i_1 + 1                        ; int
+    i_1 = t69                            ; int
+    goto L18
+L20:
+    param str8
+    t70 = call printf, 1                 ; int
+    t71 = &data                          ; int*
+    t72 = (unsigned int) 6               ; unsigned int
+    t73 = (unsigned int) 4               ; unsigned int
+    param t71
+    param t72
+    param t73
+    param cmp_desc
+    call qsort, 4
+    i_2 = 0                              ; int
+L21:
+    t74 = i_2 < 6                        ; int
+    ifFalse t74 goto L23
+    t75 = &data                          ; int*
+    t76 = i_2 * 4                        ; int
+    t77 = t75 + t76                      ; int*
+    t78 = *t77                           ; int
+    param str10
+    param t78
+    t79 = call printf, 2                 ; int
+L22:
+    t80 = i_2 + 1                        ; int
+    i_2 = t80                            ; int
+    goto L21
+L23:
+    param str8
+    t81 = call printf, 1                 ; int
+    param half
+    param 9.0
+    t82 = call apply_d, 2                ; double
+    param str11
+    param t82
+    t83 = call printf, 2                 ; int
+    param 43
+    t84 = call choose, 1                 ; fn*
+    param 6
+    param 2
+    t85 = call *t84, 2                   ; int
+    param 45
+    t86 = call choose, 1                 ; fn*
+    param 6
+    param 2
+    t87 = call *t86, 2                   ; int
+    param 42
+    t88 = call choose, 1                 ; fn*
+    param 6
+    param 2
+    t89 = call *t88, 2                   ; int
+    param str12
+    param t85
+    param t87
+    param t89
+    t90 = call printf, 4                 ; int
+    t91 = (void*) 0                      ; void*
+    t92 = (fn*) t91                      ; fn*
+    none = t92                           ; fn*
+    t94 = (void*) 0                      ; void*
+    t95 = (fn*) t94                      ; fn*
+    t96 = none == t95                    ; int
+    ifFalse t96 goto L24
+    t93 = str14                          ; char*
+    goto L25
+L24:
+    t93 = str15                          ; char*
+L25:
+    param str13
+    param t93
+    t97 = call printf, 2                 ; int
+    param 45
+    t98 = call choose_raw, 1             ; fn*
+    raw = t98                            ; fn*
+    t99 = &raw                           ; fn**
+    pp = t99                             ; fn**
+    param 9
+    param 4
+    t100 = call *raw, 2                  ; int
+    param 43
+    t101 = call choose_raw, 1            ; fn*
+    param 2
+    param 3
+    t102 = call *t101, 2                 ; int
+    param pp
+    param 5
+    t103 = call twice, 2                 ; int
+    param str16
+    param t100
+    param t102
+    param t103
+    t104 = call printf, 4                ; int
+    *pp = mul                            ; fn*
+    param 6
+    param 7
+    t105 = call *raw, 2                  ; int
+    param str17
+    param t105
+    t106 = call printf, 2                ; int
+    return 0                             ; int
+endfunction

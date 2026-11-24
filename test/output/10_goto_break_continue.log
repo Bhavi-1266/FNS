@@ -1,0 +1,3 @@
+Compiling: test/10_goto_break_continue.c
+Assembly written to test/output/10_goto_break_continue.s (1 function(s))
+IR written to test/output/10_goto_break_continue.ir

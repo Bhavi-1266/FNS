@@ -1,0 +1,3 @@
+Compiling: test/26_string_library.c
+Assembly written to test/output/26_string_library.s (1 function(s))
+IR written to test/output/26_string_library.ir

@@ -1,0 +1,3 @@
+Compiling: test/29_oop_mixed.cpp
+Assembly written to test/output/29_oop_mixed.s (13 function(s))
+IR written to test/output/29_oop_mixed.ir

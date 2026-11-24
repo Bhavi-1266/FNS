@@ -1,0 +1,19 @@
+x=15 rx=15
+x=16
+after swap x=20 y=16
+d=4.5
+arr[1]=99
+arr[2]=8
+const ref sum=36 9
+balance=120
+box b=70 c=70
+p is null
+arr[0]=-1
+rvalue refs: 43 105 lvalue rvalue rvalue
+acquire 9
+copy 9
+move 9
+h1 empty: 1, h3 empty: 0
+release 9
+release 9
+release (empty)

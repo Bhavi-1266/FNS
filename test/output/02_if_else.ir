@@ -1,0 +1,334 @@
+; FNS three-address code
+; source: test/02_if_else.c
+
+.data
+    str0: "A"
+    str1: "B"
+    str2: "C"
+    str3: "D"
+    str4: "F"
+    str5: "%d:%s "
+    str6: "\n"
+    str7: "%d %d %d %d\n"
+    str8: "both\n"
+    str9: "a only\n"
+    str10: "d true\n"
+    str11: "d false\n"
+    str12: "c is NUL\n"
+    str13: "p is null\n"
+    str14: "p -> 3\n"
+    str15: "%d leap\n"
+    str16: "%d common\n"
+    str17: "max=%d\n"
+    str18: "empty then-branch ok\n"
+
+.extern
+    printf
+
+.text
+
+function grade(int score) : char*
+    t1 = score >= 90                     ; int
+    ifFalse t1 goto L1
+    return str0                          ; char*
+    goto L2
+L1:
+    t2 = score >= 80                     ; int
+    ifFalse t2 goto L3
+    return str1                          ; char*
+    goto L4
+L3:
+    t3 = score >= 70                     ; int
+    ifFalse t3 goto L5
+    return str2                          ; char*
+    goto L6
+L5:
+    t4 = score >= 60                     ; int
+    ifFalse t4 goto L7
+    return str3                          ; char*
+    goto L8
+L7:
+    return str4                          ; char*
+L8:
+L6:
+L4:
+L2:
+    return
+endfunction
+
+function classify(int x) : int
+    t1 = x > 0                           ; int
+    ifFalse t1 goto L9
+    t2 = x % 2                           ; int
+    t3 = t2 == 0                         ; int
+    ifFalse t3 goto L10
+    return 2                             ; int
+    goto L11
+L10:
+    return 1                             ; int
+L11:
+    goto L12
+L9:
+    t4 = x < 0                           ; int
+    ifFalse t4 goto L13
+    return -1                            ; int
+L13:
+L12:
+    return 0                             ; int
+endfunction
+
+function main() : int
+    local scores : int[9] (36)
+    local i : int (4)
+    local a : int (4)
+    local b : int (4)
+    local d : double (8)
+    local c : char (1)
+    local p : int* (4)
+    local v : int (4)
+    local years : int[4] (16)
+    local i_1 : int (4)
+    local y : int (4)
+    local x : int (4)
+    local y_1 : int (4)
+    local z : int (4)
+    local big : int (4)
+    t1 = &scores                         ; int*
+    *t1 = 0                              ; int
+    t2 = t1 + 4                          ; int*
+    *t2 = 0                              ; int
+    t3 = t1 + 8                          ; int*
+    *t3 = 0                              ; int
+    t4 = t1 + 12                         ; int*
+    *t4 = 0                              ; int
+    t5 = t1 + 16                         ; int*
+    *t5 = 0                              ; int
+    t6 = t1 + 20                         ; int*
+    *t6 = 0                              ; int
+    t7 = t1 + 24                         ; int*
+    *t7 = 0                              ; int
+    t8 = t1 + 28                         ; int*
+    *t8 = 0                              ; int
+    t9 = t1 + 32                         ; int*
+    *t9 = 0                              ; int
+    *t1 = 95                             ; int
+    t10 = t1 + 4                         ; int*
+    *t10 = 85                            ; int
+    t11 = t1 + 8                         ; int*
+    *t11 = 75                            ; int
+    t12 = t1 + 12                        ; int*
+    *t12 = 65                            ; int
+    t13 = t1 + 16                        ; int*
+    *t13 = 55                            ; int
+    t14 = t1 + 20                        ; int*
+    *t14 = 90                            ; int
+    t15 = t1 + 24                        ; int*
+    *t15 = 60                            ; int
+    t16 = t1 + 28                        ; int*
+    *t16 = 0                             ; int
+    t17 = t1 + 32                        ; int*
+    *t17 = 100                           ; int
+    i = 0                                ; int
+L14:
+    t18 = i < 9                          ; int
+    ifFalse t18 goto L16
+    t19 = &scores                        ; int*
+    t20 = i * 4                          ; int
+    t21 = t19 + t20                      ; int*
+    t22 = *t21                           ; int
+    t23 = &scores                        ; int*
+    t24 = i * 4                          ; int
+    t25 = t23 + t24                      ; int*
+    t26 = *t25                           ; int
+    param t26
+    t27 = call grade, 1                  ; char*
+    param str5
+    param t22
+    param t27
+    t28 = call printf, 3                 ; int
+L15:
+    t29 = i + 1                          ; int
+    i = t29                              ; int
+    goto L14
+L16:
+    param str6
+    t30 = call printf, 1                 ; int
+    param 4
+    t31 = call classify, 1               ; int
+    param 7
+    t32 = call classify, 1               ; int
+    param -3
+    t33 = call classify, 1               ; int
+    param 0
+    t34 = call classify, 1               ; int
+    param str7
+    param t31
+    param t32
+    param t33
+    param t34
+    t35 = call printf, 5                 ; int
+    a = 1                                ; int
+    b = 0                                ; int
+    ifFalse a goto L17
+    ifFalse b goto L18
+    param str8
+    t36 = call printf, 1                 ; int
+    goto L19
+L18:
+    param str9
+    t37 = call printf, 1                 ; int
+L19:
+L17:
+    d = 0.0                              ; double
+    c = 0                                ; char
+    t38 = (int*) 0                       ; int*
+    p = t38                              ; int*
+    v = 3                                ; int
+    ifFalse d goto L20
+    param str10
+    t39 = call printf, 1                 ; int
+    goto L21
+L20:
+    param str11
+    t40 = call printf, 1                 ; int
+L21:
+    t41 = - 0.25                         ; double
+    d = t41                              ; double
+    ifFalse d goto L22
+    param str10
+    t42 = call printf, 1                 ; int
+    goto L23
+L22:
+    param str11
+    t43 = call printf, 1                 ; int
+L23:
+    t44 = ! c                            ; int
+    ifFalse t44 goto L24
+    param str12
+    t45 = call printf, 1                 ; int
+L24:
+    t46 = ! p                            ; int
+    ifFalse t46 goto L25
+    param str13
+    t47 = call printf, 1                 ; int
+L25:
+    t48 = &v                             ; int*
+    p = t48                              ; int*
+    ifFalse p goto L27
+    t50 = *p                             ; int
+    t51 = t50 == 3                       ; int
+    ifFalse t51 goto L27
+    t49 = 1                              ; int
+    goto L28
+L27:
+    t49 = 0                              ; int
+L28:
+    ifFalse t49 goto L26
+    param str14
+    t52 = call printf, 1                 ; int
+L26:
+    t53 = &years                         ; int*
+    *t53 = 0                             ; int
+    t54 = t53 + 4                        ; int*
+    *t54 = 0                             ; int
+    t55 = t53 + 8                        ; int*
+    *t55 = 0                             ; int
+    t56 = t53 + 12                       ; int*
+    *t56 = 0                             ; int
+    *t53 = 1900                          ; int
+    t57 = t53 + 4                        ; int*
+    *t57 = 2000                          ; int
+    t58 = t53 + 8                        ; int*
+    *t58 = 2023                          ; int
+    t59 = t53 + 12                       ; int*
+    *t59 = 2024                          ; int
+    i_1 = 0                              ; int
+L29:
+    t60 = i_1 < 4                        ; int
+    ifFalse t60 goto L31
+    t61 = &years                         ; int*
+    t62 = i_1 * 4                        ; int
+    t63 = t61 + t62                      ; int*
+    t64 = *t63                           ; int
+    y = t64                              ; int
+    t67 = y % 4                          ; int
+    t68 = t67 == 0                       ; int
+    ifFalse t68 goto L35
+    t69 = y % 100                        ; int
+    t70 = t69 != 0                       ; int
+    ifFalse t70 goto L35
+    t66 = 1                              ; int
+    goto L36
+L35:
+    t66 = 0                              ; int
+L36:
+    if t66 goto L33
+    t71 = y % 400                        ; int
+    t72 = t71 == 0                       ; int
+    if t72 goto L33
+    t65 = 0                              ; int
+    goto L34
+L33:
+    t65 = 1                              ; int
+L34:
+    ifFalse t65 goto L32
+    param str15
+    param y
+    t73 = call printf, 2                 ; int
+    goto L37
+L32:
+    param str16
+    param y
+    t74 = call printf, 2                 ; int
+L37:
+L30:
+    t75 = i_1 + 1                        ; int
+    i_1 = t75                            ; int
+    goto L29
+L31:
+    x = 12                               ; int
+    y_1 = 45                             ; int
+    z = 30                               ; int
+    t77 = x >= y_1                       ; int
+    ifFalse t77 goto L39
+    t78 = x >= z                         ; int
+    ifFalse t78 goto L39
+    t76 = 1                              ; int
+    goto L40
+L39:
+    t76 = 0                              ; int
+L40:
+    ifFalse t76 goto L38
+    big = x                              ; int
+    goto L41
+L38:
+    t80 = y_1 >= x                       ; int
+    ifFalse t80 goto L43
+    t81 = y_1 >= z                       ; int
+    ifFalse t81 goto L43
+    t79 = 1                              ; int
+    goto L44
+L43:
+    t79 = 0                              ; int
+L44:
+    ifFalse t79 goto L42
+    big = y_1                            ; int
+    goto L45
+L42:
+    big = z                              ; int
+L45:
+L41:
+    param str17
+    param big
+    t82 = call printf, 2                 ; int
+    t83 = x > 100                        ; int
+    ifFalse t83 goto L46
+    goto L47
+L46:
+    param str18
+    t84 = call printf, 1                 ; int
+L47:
+    ifFalse x goto L48
+L48:
+    return 0                             ; int
+endfunction

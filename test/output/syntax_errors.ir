@@ -1,0 +1,6 @@
+; FNS three-address code
+; source: test/ir_phase/syntax_errors.c
+
+; Errors (no code generated for this file):
+;   line 6: syntax error, unexpected SEMI
+;   line 7: syntax error, unexpected SEMI

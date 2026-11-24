@@ -1,0 +1,3 @@
+Compiling: test/18_access_specifiers.cpp
+Assembly written to test/output/18_access_specifiers.s (22 function(s))
+IR written to test/output/18_access_specifiers.ir

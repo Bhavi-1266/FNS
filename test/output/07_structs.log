@@ -1,0 +1,3 @@
+Compiling: test/07_structs.c
+Assembly written to test/output/07_structs.s (5 function(s))
+IR written to test/output/07_structs.ir

@@ -1,0 +1,263 @@
+; FNS three-address code
+; source: test/18_access_specifiers.cpp
+
+.data
+    str0: "%s (%d) earns %d\n"
+    str1: "private base: %d  protected base: %d\n"
+    str2: "Riya"
+    str3: "age=%d code=%d\n"
+    str4: "Kabir"
+    str5: "pair sum=%d hidden=%d\n"
+
+.extern
+    printf
+
+.text
+
+function Person_secret_code(Person* this) : int
+    t1 = *this                           ; int
+    t2 = t1 * 7                          ; int
+    return t2                            ; int
+endfunction
+
+function Person_set_age(Person* this, int a) : void
+    t1 = a >= 0                          ; int
+    ifFalse t1 goto L1
+    *this = a                            ; int
+L1:
+    return
+endfunction
+
+function Person_Person(Person* this, char* n, int a) : void
+    *this = a                            ; int
+    t1 = this + 4                        ; char**
+    *t1 = n                              ; char*
+    return
+endfunction
+
+function Person_get_age(Person* this) : int
+    t1 = *this                           ; int
+    return t1                            ; int
+endfunction
+
+function Person_code(Person* this) : int
+    param this
+    t1 = call Person_secret_code, 1      ; int
+    return t1                            ; int
+endfunction
+
+function Person_birthday(Person* this) : void
+    t1 = *this                           ; int
+    t2 = t1 + 1                          ; int
+    *this = t2                           ; int
+    return
+endfunction
+
+function Employee_Employee(Employee* this, char* n, int a, int s) : void
+    param this
+    param n
+    param a
+    call Person_Person, 3
+    t1 = this + 8                        ; int*
+    *t1 = s                              ; int
+    return
+endfunction
+
+function Employee_print(Employee* this) : void
+    t1 = this + 4                        ; char**
+    t2 = *t1                             ; char*
+    param this
+    t3 = call Person_get_age, 1          ; int
+    t4 = this + 8                        ; int*
+    t5 = *t4                             ; int
+    param str0
+    param t2
+    param t3
+    param t5
+    t6 = call printf, 4                  ; int
+    return
+endfunction
+
+function Employee_correct_age(Employee* this, int a) : void
+    param this
+    param a
+    call Person_set_age, 2
+    return
+endfunction
+
+function Employee_raise(Employee* this, int pct) : void
+    t1 = this + 8                        ; int*
+    t2 = *t1                             ; int
+    t3 = this + 8                        ; int*
+    t4 = *t3                             ; int
+    t5 = t4 * pct                        ; int
+    t6 = t5 / 100                        ; int
+    t7 = t2 + t6                         ; int
+    *t1 = t7                             ; int
+    return
+endfunction
+
+function Pair_sum(struct Pair* this) : int
+    t1 = *this                           ; int
+    t2 = this + 4                        ; int*
+    t3 = *t2                             ; int
+    t4 = t1 + t3                         ; int
+    return t4                            ; int
+endfunction
+
+function Pair_peek(struct Pair* this) : int
+    t1 = this + 8                        ; int*
+    t2 = *t1                             ; int
+    return t2                            ; int
+endfunction
+
+function Pair_Pair(struct Pair* this) : void
+    t1 = this + 4                        ; int*
+    t2 = this + 8                        ; int*
+    *t2 = 42                             ; int
+    return
+endfunction
+
+function Counter_bump(Counter* this) : void
+    t1 = *this                           ; int
+    t2 = t1 + 1                          ; int
+    *this = t2                           ; int
+    return
+endfunction
+
+function Counter_Counter(Counter* this) : void
+    *this = 0                            ; int
+    return
+endfunction
+
+function Hidden_twice(Hidden* this) : int
+    param this
+    call Counter_bump, 1
+    param this
+    call Counter_bump, 1
+    t1 = *this                           ; int
+    return t1                            ; int
+endfunction
+
+function Hidden_Hidden(Hidden* this) : void
+    param this
+    call Counter_Counter, 1
+    return
+endfunction
+
+function Shared_once(Shared* this) : int
+    param this
+    call Counter_bump, 1
+    t1 = *this                           ; int
+    return t1                            ; int
+endfunction
+
+function Shared_Shared(Shared* this) : void
+    param this
+    call Counter_Counter, 1
+    return
+endfunction
+
+function Shared2_thrice(Shared2* this) : int
+    param this
+    call Counter_bump, 1
+    param this
+    call Counter_bump, 1
+    param this
+    t1 = call Shared_once, 1             ; int
+    return t1                            ; int
+endfunction
+
+function Shared2_Shared2(Shared2* this) : void
+    param this
+    call Shared_Shared, 1
+    return
+endfunction
+
+function main() : int
+    local hd : Hidden (4)
+    local s2 : Shared2 (4)
+    local p : Person (8)
+    local e : Employee (12)
+    local pr : struct Pair (12)
+    t1 = &hd                             ; Hidden*
+    param t1
+    call Hidden_Hidden, 1
+    t2 = &s2                             ; Shared2*
+    param t2
+    call Shared2_Shared2, 1
+    t3 = &hd                             ; Hidden*
+    param t3
+    t4 = call Hidden_twice, 1            ; int
+    t5 = &s2                             ; Shared2*
+    param t5
+    t6 = call Shared2_thrice, 1          ; int
+    param str1
+    param t4
+    param t6
+    t7 = call printf, 3                  ; int
+    t8 = &p                              ; Person*
+    param t8
+    param str2
+    param 30
+    call Person_Person, 3
+    t9 = &p                              ; Person*
+    param t9
+    call Person_birthday, 1
+    t10 = &p                             ; Person*
+    param t10
+    t11 = call Person_get_age, 1         ; int
+    t12 = &p                             ; Person*
+    param t12
+    t13 = call Person_code, 1            ; int
+    param str3
+    param t11
+    param t13
+    t14 = call printf, 3                 ; int
+    t15 = &e                             ; Employee*
+    param t15
+    param str4
+    param 41
+    param 50000
+    call Employee_Employee, 4
+    t16 = &e                             ; Employee*
+    param t16
+    call Employee_print, 1
+    t17 = &e                             ; Employee*
+    param t17
+    param 40
+    call Employee_correct_age, 2
+    t18 = &e                             ; Employee*
+    param t18
+    param 10
+    call Employee_raise, 2
+    t19 = &e                             ; Employee*
+    param t19
+    call Employee_print, 1
+    t20 = &e                             ; Employee*
+    param t20
+    param -5
+    call Employee_correct_age, 2
+    t21 = &e                             ; Employee*
+    param t21
+    call Employee_print, 1
+    t22 = &pr                            ; struct Pair*
+    param t22
+    call Pair_Pair, 1
+    t23 = &pr                            ; struct Pair*
+    *t23 = 3                             ; int
+    t24 = &pr                            ; struct Pair*
+    t25 = t24 + 4                        ; int*
+    *t25 = 4                             ; int
+    t26 = &pr                            ; struct Pair*
+    param t26
+    t27 = call Pair_sum, 1               ; int
+    t28 = &pr                            ; struct Pair*
+    param t28
+    t29 = call Pair_peek, 1              ; int
+    param str5
+    param t27
+    param t29
+    t30 = call printf, 3                 ; int
+    return 0                             ; int
+endfunction

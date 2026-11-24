@@ -1,0 +1,187 @@
+; FNS three-address code
+; source: test/20_command_line.c
+
+.data
+    str0: "argc = %d\n"
+    str1: "argv[%d] = \"%s\" (length %d)\n"
+    str2: "usage: prog <op> <a> <b> [words...]\n"
+    str3: "%c(%d, %d) = %d\n"
+    str4: "longest word: %s\n"
+    str5: "total as double = %.1f\n"
+    str6: "argv[argc] is %s\n"
+    str7: "NULL"
+    str8: "not NULL"
+
+.extern
+    printf
+    strlen
+    atoi
+    atof
+
+.text
+
+function main(int argc, char** argv) : int
+    local i : int (4)
+    local a : int (4)
+    local b : int (4)
+    local op : char (1)
+    local r : int (4)
+    local longest : int (4)
+    local i_1 : int (4)
+    local total : double (8)
+    local i_2 : int (4)
+    param str0
+    param argc
+    t1 = call printf, 2                  ; int
+    i = 1                                ; int
+L1:
+    t2 = i < argc                        ; int
+    ifFalse t2 goto L3
+    t3 = i * 4                           ; int
+    t4 = argv + t3                       ; char**
+    t5 = *t4                             ; char*
+    t6 = i * 4                           ; int
+    t7 = argv + t6                       ; char**
+    t8 = *t7                             ; char*
+    param t8
+    t9 = call strlen, 1                  ; unsigned int
+    t10 = (int) t9                       ; int
+    param str1
+    param i
+    param t5
+    param t10
+    t11 = call printf, 4                 ; int
+L2:
+    t12 = i + 1                          ; int
+    i = t12                              ; int
+    goto L1
+L3:
+    t13 = argc < 4                       ; int
+    ifFalse t13 goto L4
+    param str2
+    t14 = call printf, 1                 ; int
+    return 1                             ; int
+L4:
+    t15 = argv + 8                       ; char**
+    t16 = *t15                           ; char*
+    param t16
+    t17 = call atoi, 1                   ; int
+    a = t17                              ; int
+    t18 = argv + 12                      ; char**
+    t19 = *t18                           ; char*
+    param t19
+    t20 = call atoi, 1                   ; int
+    b = t20                              ; int
+    t21 = argv + 4                       ; char**
+    t22 = *t21                           ; char*
+    t23 = *t22                           ; char
+    op = t23                             ; char
+    t25 = (int) op                       ; int
+    t26 = (int) 97                       ; int
+    t27 = t25 == t26                     ; int
+    ifFalse t27 goto L11
+    t28 = a + b                          ; int
+    t24 = t28                            ; int
+    goto L12
+L11:
+    t30 = (int) op                       ; int
+    t31 = (int) 115                      ; int
+    t32 = t30 == t31                     ; int
+    ifFalse t32 goto L15
+    t33 = a - b                          ; int
+    t29 = t33                            ; int
+    goto L16
+L15:
+    t35 = (int) op                       ; int
+    t36 = (int) 109                      ; int
+    t37 = t35 == t36                     ; int
+    ifFalse t37 goto L17
+    t38 = a * b                          ; int
+    t34 = t38                            ; int
+    goto L18
+L17:
+    t34 = 0                              ; int
+L18:
+    t29 = t34                            ; int
+L16:
+    t24 = t29                            ; int
+L12:
+    r = t24                              ; int
+    t39 = (int) op                       ; int
+    param str3
+    param t39
+    param a
+    param b
+    param r
+    t40 = call printf, 5                 ; int
+    longest = 4                          ; int
+    i_1 = 4                              ; int
+L19:
+    t41 = i_1 < argc                     ; int
+    ifFalse t41 goto L21
+    t42 = i_1 * 4                        ; int
+    t43 = argv + t42                     ; char**
+    t44 = *t43                           ; char*
+    param t44
+    t45 = call strlen, 1                 ; unsigned int
+    t46 = longest * 4                    ; int
+    t47 = argv + t46                     ; char**
+    t48 = *t47                           ; char*
+    param t48
+    t49 = call strlen, 1                 ; unsigned int
+    t50 = t45 > t49                      ; int
+    ifFalse t50 goto L22
+    longest = i_1                        ; int
+L22:
+L20:
+    t51 = i_1 + 1                        ; int
+    i_1 = t51                            ; int
+    goto L19
+L21:
+    t52 = argc > 4                       ; int
+    ifFalse t52 goto L23
+    t53 = longest * 4                    ; int
+    t54 = argv + t53                     ; char**
+    t55 = *t54                           ; char*
+    param str4
+    param t55
+    t56 = call printf, 2                 ; int
+L23:
+    t57 = (double) 0                     ; double
+    total = t57                          ; double
+    i_2 = 2                              ; int
+L24:
+    t58 = i_2 < 4                        ; int
+    ifFalse t58 goto L26
+    t59 = i_2 * 4                        ; int
+    t60 = argv + t59                     ; char**
+    t61 = *t60                           ; char*
+    param t61
+    t62 = call atof, 1                   ; double
+    t63 = total + t62                    ; double
+    total = t63                          ; double
+L25:
+    t64 = i_2 + 1                        ; int
+    i_2 = t64                            ; int
+    goto L24
+L26:
+    param str5
+    param total
+    t65 = call printf, 2                 ; int
+    t67 = argc * 4                       ; int
+    t68 = argv + t67                     ; char**
+    t69 = *t68                           ; char*
+    t70 = (void*) 0                      ; void*
+    t71 = (char*) t70                    ; char*
+    t72 = t69 == t71                     ; int
+    ifFalse t72 goto L27
+    t66 = str7                           ; char*
+    goto L28
+L27:
+    t66 = str8                           ; char*
+L28:
+    param str6
+    param t66
+    t73 = call printf, 2                 ; int
+    return 0                             ; int
+endfunction

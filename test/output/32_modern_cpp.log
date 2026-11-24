@@ -1,0 +1,3 @@
+Compiling: test/32_modern_cpp.cpp
+Assembly written to test/output/32_modern_cpp.s (5 function(s))
+IR written to test/output/32_modern_cpp.ir

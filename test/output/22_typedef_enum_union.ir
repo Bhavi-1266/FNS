@@ -1,0 +1,331 @@
+; FNS three-address code
+; source: test/22_typedef_enum_union.c
+
+.data
+    str0: "int %d\n"
+    str1: "double %.3f\n"
+    str2: "string %s\n"
+    str3: "red"
+    str4: "green"
+    str5: "blue"
+    str6: "?"
+    str7: "typedef'd string"
+    str8: "%d %d %s %d %d %d\n"
+    str9: "sizeof(Point)=%d sizeof(Vector3)=%d\n"
+    str10: "%d %d %d\n"
+    str11: "%d %d %d %d\n"
+    str12: "WED=%d FRI=%d\n"
+    str13: "%s=%d "
+    str14: "\n"
+    str15: "bytes: %c%c%c%c size=%d\n"
+    str16: "float 1.0 bits = 0x%x\n"
+    str17: "union text"
+
+.extern
+    printf
+
+.text
+
+function plus(int a, int b) : int
+    t1 = a + b                           ; int
+    return t1                            ; int
+endfunction
+
+function print_value(struct anon_7& v) : void
+    t1 = *v                              ; enum anon_enum_4
+    t2 = (int) t1                        ; int
+    t3 = t2 == 0                         ; int
+    if t3 goto L2
+    t4 = t2 == 1                         ; int
+    if t4 goto L3
+    t5 = t2 == 2                         ; int
+    if t5 goto L4
+    goto L1
+L2:
+    t6 = v + 4                           ; union anon_8*
+    t7 = *t6                             ; int
+    param str0
+    param t7
+    t8 = call printf, 2                  ; int
+    goto L1
+L3:
+    t9 = v + 4                           ; union anon_8*
+    t10 = *t9                            ; double
+    param str1
+    param t10
+    t11 = call printf, 2                 ; int
+    goto L1
+L4:
+    t12 = v + 4                          ; union anon_8*
+    t13 = *t12                           ; char*
+    param str2
+    param t13
+    t14 = call printf, 2                 ; int
+    goto L1
+L1:
+    return
+endfunction
+
+function color_name(enum Color c) : char*
+    t1 = (int) c                         ; int
+    t2 = t1 == 0                         ; int
+    if t2 goto L6
+    t3 = t1 == 1                         ; int
+    if t3 goto L7
+    t4 = t1 == 2                         ; int
+    if t4 goto L8
+    goto L5
+L6:
+    return str3                          ; char*
+L7:
+    return str4                          ; char*
+L8:
+    return str5                          ; char*
+L5:
+    return str6                          ; char*
+endfunction
+
+function main() : int
+    local n : int (4)
+    local b : unsigned char (1)
+    local s : char* (4)
+    local v : int[3] (12)
+    local p : struct anon_2 (8)
+    local pp : struct anon_2* (4)
+    local f : fn* (4)
+    local d : enum anon_enum_3 (4)
+    local counts : int[3] (12)
+    local seq : enum Color[5] (20)
+    local i : int (4)
+    local c : int (4)
+    local num : union Number (4)
+    local vals : struct anon_7[3] (36)
+    local i_1 : int (4)
+    local arg_copy : struct anon_7 (12)
+    n = 5                                ; int
+    t1 = (unsigned char) 250             ; unsigned char
+    b = t1                               ; unsigned char
+    t2 = (unsigned int) b                ; unsigned int
+    t3 = (unsigned int) 10               ; unsigned int
+    t4 = t2 + t3                         ; unsigned int
+    t5 = (unsigned char) t4              ; unsigned char
+    b = t5                               ; unsigned char
+    s = str7                             ; char*
+    t6 = &v                              ; int*
+    *t6 = 0                              ; int
+    t7 = t6 + 4                          ; int*
+    *t7 = 0                              ; int
+    t8 = t6 + 8                          ; int*
+    *t8 = 0                              ; int
+    *t6 = 1                              ; int
+    t9 = t6 + 4                          ; int*
+    *t9 = 2                              ; int
+    t10 = t6 + 8                         ; int*
+    *t10 = 3                             ; int
+    t11 = &p                             ; struct anon_2*
+    *t11 = 0                             ; int
+    t12 = t11 + 4                        ; int*
+    *t12 = 0                             ; int
+    *t11 = 4                             ; int
+    t13 = t11 + 4                        ; int*
+    *t13 = 5                             ; int
+    t14 = &p                             ; struct anon_2*
+    pp = t14                             ; struct anon_2*
+    f = plus                             ; fn*
+    t15 = (int) b                        ; int
+    t16 = &v                             ; int*
+    t17 = *t16                           ; int
+    t18 = &v                             ; int*
+    t19 = t18 + 4                        ; int*
+    t20 = *t19                           ; int
+    t21 = t17 + t20                      ; int
+    t22 = &v                             ; int*
+    t23 = t22 + 8                        ; int*
+    t24 = *t23                           ; int
+    t25 = t21 + t24                      ; int
+    t26 = *pp                            ; int
+    t27 = &p                             ; struct anon_2*
+    t28 = *t27                           ; int
+    t29 = &p                             ; struct anon_2*
+    t30 = t29 + 4                        ; int*
+    t31 = *t30                           ; int
+    param t28
+    param t31
+    t32 = call *f, 2                     ; int
+    param str8
+    param n
+    param t15
+    param s
+    param t25
+    param t26
+    param t32
+    t33 = call printf, 7                 ; int
+    t34 = (int) 8                        ; int
+    t35 = (int) 12                       ; int
+    param str9
+    param t34
+    param t35
+    t36 = call printf, 3                 ; int
+    t37 = (int) 0                        ; int
+    t38 = (int) 1                        ; int
+    t39 = (int) 2                        ; int
+    param str10
+    param t37
+    param t38
+    param t39
+    t40 = call printf, 4                 ; int
+    t41 = (int) 10                       ; int
+    t42 = (int) 20                       ; int
+    t43 = (int) 30                       ; int
+    t44 = (int) 100                      ; int
+    param str11
+    param t41
+    param t42
+    param t43
+    param t44
+    t45 = call printf, 5                 ; int
+    d = 3                                ; enum anon_enum_3
+    t46 = (int) d                        ; int
+    t47 = (int) 5                        ; int
+    param str12
+    param t46
+    param t47
+    t48 = call printf, 3                 ; int
+    t49 = &counts                        ; int*
+    *t49 = 0                             ; int
+    t50 = t49 + 4                        ; int*
+    *t50 = 0                             ; int
+    t51 = t49 + 8                        ; int*
+    *t51 = 0                             ; int
+    *t49 = 0                             ; int
+    t52 = &seq                           ; enum Color*
+    *t52 = 0                             ; enum Color
+    t53 = t52 + 4                        ; enum Color*
+    *t53 = 0                             ; enum Color
+    t54 = t52 + 8                        ; enum Color*
+    *t54 = 0                             ; enum Color
+    t55 = t52 + 12                       ; enum Color*
+    *t55 = 0                             ; enum Color
+    t56 = t52 + 16                       ; enum Color*
+    *t56 = 0                             ; enum Color
+    *t52 = 0                             ; enum Color
+    t57 = t52 + 4                        ; enum Color*
+    *t57 = 2                             ; enum Color
+    t58 = t52 + 8                        ; enum Color*
+    *t58 = 2                             ; enum Color
+    t59 = t52 + 12                       ; enum Color*
+    *t59 = 1                             ; enum Color
+    t60 = t52 + 16                       ; enum Color*
+    *t60 = 2                             ; enum Color
+    i = 0                                ; int
+L9:
+    t61 = i < 5                          ; int
+    ifFalse t61 goto L11
+    t62 = &counts                        ; int*
+    t63 = &seq                           ; enum Color*
+    t64 = i * 4                          ; int
+    t65 = t63 + t64                      ; enum Color*
+    t66 = *t65                           ; enum Color
+    t67 = t66 * 4                        ; int
+    t68 = t62 + t67                      ; int*
+    t69 = *t68                           ; int
+    t70 = t69 + 1                        ; int
+    *t68 = t70                           ; int
+L10:
+    t71 = i + 1                          ; int
+    i = t71                              ; int
+    goto L9
+L11:
+    t72 = (int) 0                        ; int
+    c = t72                              ; int
+L12:
+    t73 = (int) 2                        ; int
+    t74 = c <= t73                       ; int
+    ifFalse t74 goto L14
+    t75 = (enum Color) c                 ; enum Color
+    param t75
+    t76 = call color_name, 1             ; char*
+    t77 = &counts                        ; int*
+    t78 = c * 4                          ; int
+    t79 = t77 + t78                      ; int*
+    t80 = *t79                           ; int
+    param str13
+    param t76
+    param t80
+    t81 = call printf, 3                 ; int
+L13:
+    t82 = c + 1                          ; int
+    c = t82                              ; int
+    goto L12
+L14:
+    param str14
+    t83 = call printf, 1                 ; int
+    t84 = &num                           ; union Number*
+    *t84 = 1094861636                    ; int
+    t85 = &num                           ; union Number*
+    t86 = *t85                           ; char
+    t87 = (int) t86                      ; int
+    t88 = &num                           ; union Number*
+    t89 = t88 + 1                        ; char*
+    t90 = *t89                           ; char
+    t91 = (int) t90                      ; int
+    t92 = &num                           ; union Number*
+    t93 = t92 + 2                        ; char*
+    t94 = *t93                           ; char
+    t95 = (int) t94                      ; int
+    t96 = &num                           ; union Number*
+    t97 = t96 + 3                        ; char*
+    t98 = *t97                           ; char
+    t99 = (int) t98                      ; int
+    t100 = (int) 4                       ; int
+    param str15
+    param t87
+    param t91
+    param t95
+    param t99
+    param t100
+    t101 = call printf, 6                ; int
+    t102 = &num                          ; union Number*
+    *t102 = 1.0f                         ; float
+    t103 = &num                          ; union Number*
+    t104 = *t103                         ; int
+    param str16
+    param t104
+    t105 = call printf, 2                ; int
+    t106 = &vals                         ; struct anon_7*
+    *t106 = 0                            ; enum anon_enum_4
+    t107 = &vals                         ; struct anon_7*
+    t108 = t107 + 4                      ; union anon_8*
+    *t108 = 42                           ; int
+    t109 = &vals                         ; struct anon_7*
+    t110 = t109 + 12                     ; struct anon_7*
+    *t110 = 1                            ; enum anon_enum_4
+    t111 = &vals                         ; struct anon_7*
+    t112 = t111 + 12                     ; struct anon_7*
+    t113 = t112 + 4                      ; union anon_8*
+    *t113 = 2.718                        ; double
+    t114 = &vals                         ; struct anon_7*
+    t115 = t114 + 24                     ; struct anon_7*
+    *t115 = 2                            ; enum anon_enum_4
+    t116 = &vals                         ; struct anon_7*
+    t117 = t116 + 24                     ; struct anon_7*
+    t118 = t117 + 4                      ; union anon_8*
+    *t118 = str17                        ; char*
+    i_1 = 0                              ; int
+L15:
+    t119 = i_1 < 3                       ; int
+    ifFalse t119 goto L17
+    t120 = &vals                         ; struct anon_7*
+    t121 = i_1 * 12                      ; int
+    t122 = t120 + t121                   ; struct anon_7*
+    t123 = &arg_copy                     ; struct anon_7*
+    copy t123, t122, 12                  ; struct anon_7
+    param t123
+    call print_value, 1
+L16:
+    t124 = i_1 + 1                       ; int
+    i_1 = t124                           ; int
+    goto L15
+L17:
+    return 0                             ; int
+endfunction

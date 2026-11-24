@@ -1,0 +1,18 @@
+sizeof a=32 inferred=12 n=3
+1 2 0 0 0 0 
+sum=173
+-5 0 3 7 19 19 42 88 
+find 19 -> 1, find 4 -> -1
+global: 0 16 global
+compiler 8 mips 5
+reversed: relipmoc
+truncated: rel
+upper=2 lower=8 digits=3 other=4
+Mon-ann Tue-bob Wed-cy 
+bd
+fib[11]=89
+mon tue wed | 0 10 0 30 40 | 4 9 0
+vla len 2: sizeof 8, sum 1
+vla len 4: sizeof 16, sum 14
+vla len 6: sizeof 24, sum 55
+abc 12

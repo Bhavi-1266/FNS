@@ -1,0 +1,3 @@
+Compiling: test/16_classes.cpp
+Assembly written to test/output/16_classes.s (33 function(s))
+IR written to test/output/16_classes.ir

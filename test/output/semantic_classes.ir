@@ -1,0 +1,37 @@
+; FNS three-address code
+; source: test/ir_phase/semantic_classes.cpp
+
+; Errors (no code generated for this file):
+;   line 34: unknown base class Nope
+;   line 14: non-static member 'pub' used in a static method
+;   line 15: non-static method 'get' called from a static method
+;   line 21: member 'priv' is not accessible here
+;   line 23: member 'prot' is not accessible here
+;   line 24: member 'hidden' is not accessible here
+;   line 31: member 'prot' is not accessible here
+;   line 32: qualified non-static call requires a compatible this object
+;   line 37: member destructor of 'PrivDtor' is not accessible here
+;   line 38: base destructor of 'PrivDtor' is not accessible here
+;   line 39: reference member 'r' requires an initializer
+;   line 40: reference member must bind to an lvalue
+;   line 41: reference member initializer requires one lvalue
+;   line 42: unknown member zz in initializer list
+;   line 43: too many values in member initializer
+;   line 45: base class has no constructor
+;   line 49: member 'priv' is not accessible here
+;   line 50: member 'prot' is not accessible here
+;   line 51: member 'prot' is not accessible here
+;   line 52: member 'priv' is not accessible here
+;   line 53: member 'hidden' is not accessible here
+;   line 54: no member 'nosuch' in Base
+;   line 55: no member 'nomethod' in Base
+;   line 56: member 'sp' is not accessible here
+;   line 57: qualified non-static call requires a compatible this object
+;   line 58: constructor of 'PrivCtor' is not accessible here
+;   line 59: constructor of 'PrivCtor' is not accessible here
+;   line 60: destructor of 'PrivDtor' is not accessible here
+;   line 61: destructor of 'PrivDtor' is not accessible here
+;   line 62: function 'Ctor2' expects 1 argument(s), got 0
+;   line 63: function 'Ctor2' expects 1 argument(s), got 2
+;   line 64: operator '+' requires arithmetic operands
+;   line 66: member access on non-aggregate 'f'

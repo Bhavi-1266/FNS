@@ -1,0 +1,249 @@
+; FNS three-address code
+; source: test/08_printf_scanf.c
+
+.data
+    str0: "%d %d"
+    str1: "read %d ints: %d %d sum=%d\n"
+    str2: " %c"
+    str3: "%s"
+    str4: "initial=%c word=%s\n"
+    str5: "%f %lf"
+    str6: "f=%.2f d=%.4f product=%.3f\n"
+    str7: "%x %o"
+    str8: "hex=%d oct=%d\n"
+    str9: "%d"
+    str10: "%d more numbers, total=%d\n"
+    str11: "scanf at EOF returns %d\n"
+    str12: "[%d] [%i] [%5d] [%-5d] [%05d] [%+d] [% d]\n"
+    str13: "[%u] [%x] [%X] [%#x] [%o] [%#o]\n"
+    str14: "[%c] [%5c] [%-3c]\n"
+    str15: "[%s] [%8s] [%-8s] [%.2s]\n"
+    str16: "text"
+    str17: "[%f] [%.0f] [%.1f] [%10.3f] [%-10.2f] [%+.2f]\n"
+    str18: "[%e] [%.2E] [%g] [%g] [%g]\n"
+    str19: "[%5.1f%%] [%d%%]\n"
+    str20: "[%*d] [%-*d] [%.*f]\n"
+    str21: "[%hd] [%ld] [%lu] [%hhd]\n"
+    str22: "abc\n"
+    str23: "printf returned %d\n"
+    str24: "%s-%03d-%.1f"
+    str25: "id"
+    str26: "%s (%d chars)\n"
+    str27: "12 apples 30"
+    str28: "%d %s %d"
+    str29: "sscanf got %d: %d %s %d\n"
+
+.extern
+    scanf
+    printf
+    sprintf
+    sscanf
+
+.text
+
+function main() : int
+    local n1 : int (4)
+    local n2 : int (4)
+    local count : int (4)
+    local initial : char (1)
+    local word : char[32] (32)
+    local f : float (4)
+    local d : double (8)
+    local hex : int (4)
+    local oct : int (4)
+    local x : int (4)
+    local total : int (4)
+    local items : int (4)
+    local len : int (4)
+    local buf : char[64] (64)
+    local written : int (4)
+    local a : int (4)
+    local b : int (4)
+    local tag : char[10] (10)
+    local got : int (4)
+    t1 = &n1                             ; int*
+    t2 = &n2                             ; int*
+    param str0
+    param t1
+    param t2
+    t3 = call scanf, 3                   ; int
+    count = t3                           ; int
+    t4 = n1 + n2                         ; int
+    param str1
+    param count
+    param n1
+    param n2
+    param t4
+    t5 = call printf, 5                  ; int
+    t6 = &initial                        ; char*
+    param str2
+    param t6
+    t7 = call scanf, 2                   ; int
+    t8 = &word                           ; char*
+    param str3
+    param t8
+    t9 = call scanf, 2                   ; int
+    t10 = (int) initial                  ; int
+    t11 = &word                          ; char*
+    param str4
+    param t10
+    param t11
+    t12 = call printf, 3                 ; int
+    t13 = &f                             ; float*
+    t14 = &d                             ; double*
+    param str5
+    param t13
+    param t14
+    t15 = call scanf, 3                  ; int
+    t16 = (double) f                     ; double
+    t17 = (double) f                     ; double
+    t18 = t17 * d                        ; double
+    param str6
+    param t16
+    param d
+    param t18
+    t19 = call printf, 4                 ; int
+    t20 = &hex                           ; int*
+    t21 = &oct                           ; int*
+    param str7
+    param t20
+    param t21
+    t22 = call scanf, 3                  ; int
+    param str8
+    param hex
+    param oct
+    t23 = call printf, 3                 ; int
+    total = 0                            ; int
+    items = 0                            ; int
+L1:
+    t24 = &x                             ; int*
+    param str9
+    param t24
+    t25 = call scanf, 2                  ; int
+    t26 = t25 == 1                       ; int
+    ifFalse t26 goto L2
+    t27 = total + x                      ; int
+    total = t27                          ; int
+    t28 = items + 1                      ; int
+    items = t28                          ; int
+    goto L1
+L2:
+    param str10
+    param items
+    param total
+    t29 = call printf, 3                 ; int
+    t30 = &x                             ; int*
+    param str9
+    param t30
+    t31 = call scanf, 2                  ; int
+    param str11
+    param t31
+    t32 = call printf, 2                 ; int
+    param str12
+    param 42
+    param 42
+    param 42
+    param 42
+    param 42
+    param 42
+    param 42
+    t33 = call printf, 8                 ; int
+    param str13
+    param 4294967295
+    param 255
+    param 255
+    param 255
+    param 8
+    param 8
+    t34 = call printf, 7                 ; int
+    t35 = (int) 81                       ; int
+    t36 = (int) 81                       ; int
+    t37 = (int) 81                       ; int
+    param str14
+    param t35
+    param t36
+    param t37
+    t38 = call printf, 4                 ; int
+    param str15
+    param str16
+    param str16
+    param str16
+    param str16
+    t39 = call printf, 5                 ; int
+    t40 = - 1.5                          ; double
+    param str17
+    param 3.14159
+    param 2.5
+    param 0.05
+    param t40
+    param 9.999
+    param 1.0
+    t41 = call printf, 7                 ; int
+    param str18
+    param 123456.789
+    param 0.000123
+    param 0.0001
+    param 1e10
+    param 100.0
+    t42 = call printf, 6                 ; int
+    param str19
+    param 99.5
+    param 100
+    t43 = call printf, 3                 ; int
+    param str20
+    param 6
+    param 7
+    param 4
+    param 8
+    param 2
+    param 3.14159
+    t44 = call printf, 7                 ; int
+    t45 = (short) -3                     ; short
+    t46 = (int) t45                      ; int
+    t47 = (char) 65                      ; char
+    t48 = (int) t47                      ; int
+    param str21
+    param t46
+    param 123456
+    param 99
+    param t48
+    t49 = call printf, 5                 ; int
+    param str22
+    t50 = call printf, 1                 ; int
+    len = t50                            ; int
+    param str23
+    param len
+    t51 = call printf, 2                 ; int
+    t52 = &buf                           ; char*
+    t53 = (char*) t52                    ; char*
+    param t53
+    param str24
+    param str25
+    param 7
+    param 2.25
+    t54 = call sprintf, 5                ; int
+    written = t54                        ; int
+    t55 = &buf                           ; char*
+    param str26
+    param t55
+    param written
+    t56 = call printf, 3                 ; int
+    t57 = &a                             ; int*
+    t58 = &tag                           ; char*
+    t59 = &b                             ; int*
+    param str27
+    param str28
+    param t57
+    param t58
+    param t59
+    t60 = call sscanf, 5                 ; int
+    got = t60                            ; int
+    t61 = &tag                           ; char*
+    param str29
+    param got
+    param a
+    param t61
+    param b
+    t62 = call printf, 5                 ; int
+    return 0                             ; int
+endfunction

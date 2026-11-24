@@ -1,0 +1,531 @@
+; FNS three-address code
+; source: test/31_object_lifetime.cpp
+
+.data
+    str0: "T(%d)\n"
+    str1: "copy -> %d\n"
+    str2: "~T(%d)\n"
+    str3: "show %d\n"
+    str4: "first_use(%d): made %d, calls %d\n"
+    str5: "found %d\n"
+    str6: "Val(%d)\n"
+    str7: "~Val(%d)\n"
+    str8: "main starts, global id=%d\n"
+    str9: "returned %d\n"
+    str10: "inner block\n"
+    str11: "first: %d\n"
+    str12: "second: %d\n"
+    str13: "%d %d %d %.1f %.1f\n"
+    str14: "peek %d\n"
+    str15: "v3=%d\n"
+    str16: "p=%d q=%d\n"
+    str17: "main ends\n"
+    global global_obj : T (4)
+    global instance_only : T (4)
+    global instance_only__guard : int (4) = 0
+    global first_use_made : T (4)
+    global first_use_made__guard : int (4) = 0
+    global first_use_calls : int (4)
+    global first_use_calls__guard : int (4) = 0
+    global pair_of_two_two : T[2] (8)
+    global pair_of_two_two__guard : int (4) = 0
+
+.extern
+    printf
+    __fns_atexit
+    exit
+    __fns_run_atexit
+
+.text
+
+function __global_init() : void
+    t1 = &global_obj                     ; T*
+    param t1
+    param 7
+    call T_T, 2
+    return
+endfunction
+
+function T_T(T* this, int i) : void
+    *this = i                            ; int
+    t1 = *this                           ; int
+    param str0
+    param t1
+    t2 = call printf, 2                  ; int
+    return
+endfunction
+
+function T_T__1(T* this, T& o) : void
+    t1 = *o                              ; int
+    t2 = t1 + 100                        ; int
+    *this = t2                           ; int
+    t3 = *this                           ; int
+    param str1
+    param t3
+    t4 = call printf, 2                  ; int
+    return
+endfunction
+
+function T__dtor(T* this) : void
+    t1 = *this                           ; int
+    param str2
+    param t1
+    t2 = call printf, 2                  ; int
+    return
+endfunction
+
+function show(T& t) : int
+    t1 = *t                              ; int
+    param str3
+    param t1
+    t2 = call printf, 2                  ; int
+    t3 = *t                              ; int
+    return t3                            ; int
+endfunction
+
+function instance() : T&
+    t1 = instance_only__guard            ; int
+    if t1 goto L1
+    instance_only__guard = 1             ; int
+    t2 = &instance_only                  ; T*
+    param t2
+    param 42
+    call T_T, 2
+    t3 = &instance_only                  ; T*
+    param T__dtor
+    param t3
+    t4 = call __fns_atexit, 2            ; int
+L1:
+    t5 = &instance_only                  ; T*
+    return t5                            ; T*
+endfunction
+
+function first_use(int n) : void
+    t1 = first_use_made__guard           ; int
+    if t1 goto L2
+    first_use_made__guard = 1            ; int
+    t2 = &first_use_made                 ; T*
+    param t2
+    param n
+    call T_T, 2
+    t3 = &first_use_made                 ; T*
+    param T__dtor
+    param t3
+    t4 = call __fns_atexit, 2            ; int
+L2:
+    t5 = first_use_calls__guard          ; int
+    if t5 goto L3
+    first_use_calls__guard = 1           ; int
+    t6 = n * 10                          ; int
+    first_use_calls = t6                 ; int
+L3:
+    t7 = first_use_calls + 1             ; int
+    first_use_calls = t7                 ; int
+    t8 = &first_use_made                 ; T*
+    t9 = *t8                             ; int
+    param str4
+    param n
+    param t9
+    param first_use_calls
+    t10 = call printf, 4                 ; int
+    return
+endfunction
+
+function search(int target) : int
+    local outer : T (4)
+    local i : int (4)
+    local row : T (4)
+    local j : int (4)
+    local cell : T (4)
+    t1 = &outer                          ; T*
+    param t1
+    param 1
+    call T_T, 2
+    i = 0                                ; int
+L4:
+    t2 = i < 2                           ; int
+    ifFalse t2 goto L6
+    t3 = &row                            ; T*
+    t4 = 10 + i                          ; int
+    param t3
+    param t4
+    call T_T, 2
+    j = 0                                ; int
+L7:
+    t5 = j < 2                           ; int
+    ifFalse t5 goto L9
+    t6 = &cell                           ; T*
+    t7 = i * 2                           ; int
+    t8 = 100 + t7                        ; int
+    t9 = t8 + j                          ; int
+    param t6
+    param t9
+    call T_T, 2
+    t10 = i * 2                          ; int
+    t11 = t10 + j                        ; int
+    t12 = t11 == target                  ; int
+    ifFalse t12 goto L10
+    t15 = &cell                          ; T*
+    param t15
+    call T__dtor, 1
+    t14 = &row                           ; T*
+    param t14
+    call T__dtor, 1
+    goto found
+L10:
+    t16 = &cell                          ; T*
+    param t16
+    call T__dtor, 1
+L8:
+    t17 = j + 1                          ; int
+    j = t17                              ; int
+    goto L7
+L9:
+    t18 = &row                           ; T*
+    param t18
+    call T__dtor, 1
+L5:
+    t19 = i + 1                          ; int
+    i = t19                              ; int
+    goto L4
+L6:
+    t20 = &outer                         ; T*
+    param t20
+    call T__dtor, 1
+    return -1                            ; int
+found:
+    param str5
+    param target
+    t21 = call printf, 2                 ; int
+    t22 = &outer                         ; T*
+    param t22
+    call T__dtor, 1
+    return target                        ; int
+endfunction
+
+function pair_of_two() : void
+    t1 = pair_of_two_two__guard          ; int
+    if t1 goto L11
+    pair_of_two_two__guard = 1           ; int
+    t2 = &pair_of_two_two                ; T*
+    t3 = 0                               ; int
+L12:
+    t4 = t3 >= 2                         ; int
+    if t4 goto L13
+    t5 = t3 * 4                          ; int
+    t6 = t2 + t5                         ; T*
+    param t6
+    param 0
+    call T_T, 2
+    param T__dtor
+    param t6
+    t7 = call __fns_atexit, 2            ; int
+    t3 = t3 + 1                          ; int
+    goto L12
+L13:
+L11:
+    t8 = &pair_of_two_two                ; T*
+    t9 = t8 + 4                          ; T*
+    *t9 = 55                             ; int
+    return
+endfunction
+
+function Counter_Counter(Counter* this, int start, int s) : void
+    *this = start                        ; int
+    t1 = this + 4                        ; int*
+    *t1 = s                              ; int
+    return
+endfunction
+
+function Counter_tick(Counter* this, int times) : void
+    t1 = *this                           ; int
+    t2 = this + 4                        ; int*
+    t3 = *t2                             ; int
+    t4 = t3 * times                      ; int
+    t5 = t1 + t4                         ; int
+    *this = t5                           ; int
+    return
+endfunction
+
+function Counter_get(Counter* this) : int
+    t1 = *this                           ; int
+    return t1                            ; int
+endfunction
+
+function area(double w, double h) : double
+    t1 = w * h                           ; double
+    return t1                            ; double
+endfunction
+
+function Val_Val(Val* this, int x) : void
+    *this = x                            ; int
+    t1 = *this                           ; int
+    param str6
+    param t1
+    t2 = call printf, 2                  ; int
+    return
+endfunction
+
+function Val__dtor(Val* this) : void
+    t1 = *this                           ; int
+    param str7
+    param t1
+    t2 = call printf, 2                  ; int
+    return
+endfunction
+
+function Val_get(Val* this) : int
+    t1 = *this                           ; int
+    return t1                            ; int
+endfunction
+
+function Val_plus(Val* this, int d) : Val
+    local obj : Val (4)
+    t1 = &obj                            ; Val*
+    t2 = *this                           ; int
+    t3 = t2 + d                          ; int
+    param t1
+    param t3
+    call Val_Val, 2
+    return t1                            ; Val
+endfunction
+
+function peek(Val& o) : int
+    param o
+    t1 = call Val_get, 1                 ; int
+    return t1                            ; int
+endfunction
+
+function larger(int& a, int& b) : int&
+    t2 = *a                              ; int
+    t3 = *b                              ; int
+    t4 = t2 > t3                         ; int
+    ifFalse t4 goto L14
+    t1 = a                               ; int*
+    goto L15
+L14:
+    t1 = b                               ; int*
+L15:
+    return t1                            ; int*
+endfunction
+
+function main() : int
+    local a : T (4)
+    local b : T (4)
+    local arg_copy : T (4)
+    local arg_copy_1 : T (4)
+    local c : T (4)
+    local x : Counter (8)
+    local y : Counter (8)
+    local z : Counter (8)
+    local d : T (4)
+    local obj_1 : Val (4)
+    local v1 : Val (4)
+    local v3 : Val (4)
+    local ret_tmp_2 : Val (4)
+    local ret_tmp_3 : Val (4)
+    local p : int (4)
+    local q : int (4)
+    call __global_init, 0
+    param __global_fini
+    param 0
+    call __fns_atexit, 2
+    t1 = &global_obj                     ; T*
+    t2 = *t1                             ; int
+    param str8
+    param t2
+    t3 = call printf, 2                  ; int
+    t4 = &a                              ; T*
+    param t4
+    param 1
+    call T_T, 2
+    t5 = &b                              ; T*
+    param t5
+    t6 = &a                              ; T*
+    param t6
+    call T_T__1, 2
+    t7 = &arg_copy                       ; T*
+    param t7
+    t8 = &a                              ; T*
+    param t8
+    call T_T__1, 2
+    param t7
+    t9 = call show, 1                    ; int
+    t10 = &arg_copy                      ; ptr
+    param t10
+    call T__dtor, 1
+    t11 = &arg_copy_1                    ; T*
+    param t11
+    t12 = &b                             ; T*
+    param t12
+    call T_T__1, 2
+    param t11
+    t13 = call show, 1                   ; int
+    param str9
+    param t13
+    t14 = call printf, 2                 ; int
+    t15 = &arg_copy_1                    ; ptr
+    param t15
+    call T__dtor, 1
+    t16 = &c                             ; T*
+    t17 = &b                             ; T*
+    param t16
+    param t17
+    call T_T__1, 2
+    param str10
+    t18 = call printf, 1                 ; int
+    t19 = &c                             ; T*
+    param t19
+    call T__dtor, 1
+    t20 = call instance, 0               ; T*
+    t21 = *t20                           ; int
+    param str11
+    param t21
+    t22 = call printf, 2                 ; int
+    t23 = call instance, 0               ; T*
+    t24 = *t23                           ; int
+    param str12
+    param t24
+    t25 = call printf, 2                 ; int
+    t26 = &x                             ; Counter*
+    param t26
+    param 10
+    param 1
+    call Counter_Counter, 3
+    t27 = &y                             ; Counter*
+    param t27
+    param 5
+    param 1
+    call Counter_Counter, 3
+    t28 = &z                             ; Counter*
+    param t28
+    param 0
+    param 3
+    call Counter_Counter, 3
+    t29 = &x                             ; Counter*
+    param t29
+    param 1
+    call Counter_tick, 2
+    t30 = &y                             ; Counter*
+    param t30
+    param 4
+    call Counter_tick, 2
+    t31 = &z                             ; Counter*
+    param t31
+    param 2
+    call Counter_tick, 2
+    t32 = &x                             ; Counter*
+    param t32
+    t33 = call Counter_get, 1            ; int
+    t34 = &y                             ; Counter*
+    param t34
+    t35 = call Counter_get, 1            ; int
+    t36 = &z                             ; Counter*
+    param t36
+    t37 = call Counter_get, 1            ; int
+    t38 = (double) 3                     ; double
+    param t38
+    param 2.0
+    t39 = call area, 2                   ; double
+    t40 = (double) 3                     ; double
+    t41 = (double) 4                     ; double
+    param t40
+    param t41
+    t42 = call area, 2                   ; double
+    param str13
+    param t33
+    param t35
+    param t37
+    param t39
+    param t42
+    t43 = call printf, 6                 ; int
+    t44 = &d                             ; T*
+    param t44
+    param 0
+    call T_T, 2
+    t45 = &obj_1                         ; Val*
+    param t45
+    param 5
+    call Val_Val, 2
+    param t45
+    t46 = call peek, 1                   ; int
+    param str14
+    param t46
+    t47 = call printf, 2                 ; int
+    t48 = &obj_1                         ; ptr
+    param t48
+    call Val__dtor, 1
+    t49 = &v1                            ; Val*
+    param t49
+    param 1
+    call Val_Val, 2
+    t50 = &v1                            ; Val*
+    param t50
+    param 1
+    t51 = call Val_plus, 2               ; Val
+    t52 = &ret_tmp_2                     ; Val*
+    copy t52, t51, 4                     ; Val
+    param t52
+    param 2
+    t53 = call Val_plus, 2               ; Val
+    t54 = &ret_tmp_3                     ; Val*
+    copy t54, t53, 4                     ; Val
+    t55 = &v3                            ; Val*
+    copy t55, t54, 4                     ; Val
+    t56 = &ret_tmp_2                     ; ptr
+    param t56
+    call Val__dtor, 1
+    t57 = &v3                            ; Val*
+    param t57
+    t58 = call Val_get, 1                ; int
+    param str15
+    param t58
+    t59 = call printf, 2                 ; int
+    p = 3                                ; int
+    q = 8                                ; int
+    t60 = &p                             ; int*
+    t61 = &q                             ; int*
+    param t60
+    param t61
+    t62 = call larger, 2                 ; int*
+    *t62 = 0                             ; int
+    param str16
+    param p
+    param q
+    t63 = call printf, 3                 ; int
+    param 2
+    t64 = call search, 1                 ; int
+    param 8
+    call first_use, 1
+    param 9
+    call first_use, 1
+    call pair_of_two, 0
+    param str17
+    t65 = call printf, 1                 ; int
+    param 0
+    call exit, 1
+    t66 = &v3                            ; Val*
+    param t66
+    call Val__dtor, 1
+    t67 = &v1                            ; Val*
+    param t67
+    call Val__dtor, 1
+    t68 = &d                             ; T*
+    param t68
+    call T__dtor, 1
+    t69 = &b                             ; T*
+    param t69
+    call T__dtor, 1
+    t70 = &a                             ; T*
+    param t70
+    call T__dtor, 1
+    call __fns_run_atexit, 0
+    return 0
+endfunction
+
+function __global_fini() : void
+    t1 = &global_obj                     ; ptr
+    param t1
+    call T__dtor, 1
+    return
+endfunction

@@ -1,0 +1,3 @@
+Compiling: test/24_until_loop.c
+Assembly written to test/output/24_until_loop.s (1 function(s))
+IR written to test/output/24_until_loop.ir

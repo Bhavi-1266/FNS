@@ -1,0 +1,36 @@
+T(7)
+main starts, global id=7
+T(1)
+copy -> 101
+copy -> 101
+show 101
+~T(101)
+copy -> 201
+show 201
+returned 201
+~T(201)
+copy -> 201
+inner block
+~T(201)
+T(42)
+first: 42
+second: 42
+11 9 6 6.0 12.0
+T(0)
+Val(5)
+peek 5
+~Val(5)
+Val(1)
+Val(2)
+Val(4)
+~Val(2)
+v3=4
+p=3 q=0
+main ends
+~Val(4)
+~Val(1)
+~T(0)
+~T(101)
+~T(1)
+~T(42)
+~T(7)

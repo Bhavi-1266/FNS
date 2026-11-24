@@ -1,0 +1,6 @@
+Errors:
+  line 17: member 'balance' is not accessible here
+  line 23: member 'balance' is not accessible here
+  line 24: member 'audit' is not accessible here
+  line 25: member 'id' is not accessible here
+No assembly generated (4 error(s)).

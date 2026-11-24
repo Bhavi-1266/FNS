@@ -1,0 +1,17 @@
+Hello, World | Hello | len=12
+cmp: 1 1 1
+ncmp: 0
+strncpy: truncate
+strncat: truncateXY
+strchr: o, World, strrchr: orld
+strstr: World, missing: null
+Duplicate
+[one][two][three][four]
+mIxEd 123 TEXT!
+alpha=3 digit=3 space=2 punct=2
+atoi=-321 atol=123456 atof=250.000
+strtol hex=31 rest= rest
+abs=17 17
+memcpy: 1 5, memset: 0, memcmp: 1
+memmove: 1 1 2 3 5
+rand repeatable after srand: 1

@@ -1,0 +1,6 @@
+Errors:
+  line 9: undeclared identifier 'y'
+  line 10: function 'add' expects 2 argument(s), got 1
+  line 11: function 'add' expects 2 argument(s), got 3
+  undefined reference to function 'undefined_function'
+No assembly generated (4 error(s)).

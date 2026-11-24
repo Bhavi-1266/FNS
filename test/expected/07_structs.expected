@@ -1,0 +1,11 @@
+Asha    1  88.50 12/05/2004
+Bilal   2  92.00 01/01/2003
+Chen    3  79.25 30/12/2004
+top: Bilal
+roll still 2
+Asha now born 2003, marks 90.00
+Chen 30 / Copy 1
+(2.0, 2.0)
+11 -> 22 -> 33 -> 44 -> NULL
+sizeof(struct Date)=12 sizeof(Complex)=16
+via pointer: 2003-1-1

@@ -10,6 +10,9 @@ BISON := bison
 FLEX := flex
 
 EXE := fnsc
+SIM ?= spim
+TEST_LOG := test/output/test_results.txt
+RUN_FILE := $(or $(FILE),$(RUN))
 BUILD := build
 BISON_CPP := $(BUILD)/parser.tab.cc
 BISON_HDR := $(BUILD)/parser.tab.hpp
@@ -32,10 +35,12 @@ all: $(EXE)
 help:
 	@echo "FNS (Friendly Neighbourhood Spiderman) compiler: source -> MIPS32 assembly"
 	@echo "  make              Build ./$(EXE)"
-	@echo "  make test         Build, run every test on spim and print each test's 3AC IR"
-	@echo "                    (./run.sh ./$(EXE) --show-ir; IR also saved in test/output/*.ir)"
-	@echo "  make check        Same tests without printing the IR (PASS/FAIL only)"
-	@echo "  make run FILE=x   Compile one source file (writes x.s and x.ir)"
+	@echo "  make test         Build and run every test on spim; PASS/FAIL on the terminal,"
+	@echo "                    full output (each test's 3AC IR, program output, results)"
+	@echo "                    saved in $(TEST_LOG)"
+	@echo "  make check        Same tests, PASS/FAIL only, nothing extra saved"
+	@echo "  make run FILE=x   Compile x, print its 3AC IR and MIPS assembly, run it on spim"
+	@echo "                    (RUN=x works too; program arguments: ARGS=\"a b\")"
 	@echo "  make clean        Remove generated files and outputs"
 
 $(BUILD):
@@ -85,17 +90,32 @@ $(BUILD)/mips.o: src/mips.cpp $(HDRS) $(RUNTIME_INC) $(LIB_INC)
 $(EXE): $(COMMON_OBJS) $(BUILD)/mips.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-# `make test` prints the three-address code of every test program before its
-# PASS/FAIL line; the IR of each test is also kept in test/output/NN_name.ir.
+# `make test` runs every test; the terminal shows the PASS/FAIL lines and the
+# whole output (each test's 3AC IR, its program output and the results) is
+# saved in $(TEST_LOG). The IR of each test is also kept in test/output/NN_name.ir.
 test: $(EXE)
-	bash run.sh ./$(EXE) --show-ir
+	bash run.sh ./$(EXE) --show-ir --log $(TEST_LOG)
 
 check: $(EXE)
 	bash run.sh ./$(EXE)
 
+# `make run FILE=x.c` (or RUN=x.c): compile one file, print its 3AC IR and its
+# MIPS assembly on the terminal (also kept in x.ir and x.s), then run it on spim.
+# Program arguments: ARGS="a b c".
 run: $(EXE)
-	@test -n "$(FILE)" || { echo "usage: make run FILE=path/to/source.c"; exit 1; }
-	./$(EXE) "$(FILE)" --emit-ir
+	@test -n "$(RUN_FILE)" || { echo "usage: make run FILE=path/to/source.c [ARGS=\"arg1 arg2\"]"; exit 1; }
+	@stem=$$(basename "$(RUN_FILE)"); stem=$${stem%.*}; \
+	./$(EXE) "$(RUN_FILE)" -o "$$stem.s" --emit-ir "$$stem.ir" || exit $$?; \
+	echo "==================== 3AC IR: $$stem.ir ===================="; \
+	cat "$$stem.ir"; \
+	echo "==================== MIPS assembly: $$stem.s ===================="; \
+	cat "$$stem.s"; \
+	if command -v $(SIM) >/dev/null 2>&1; then \
+	    echo "==================== program output: $(SIM) -file $$stem.s $(ARGS) ===================="; \
+	    $(SIM) -file "$$stem.s" $(ARGS); \
+	else \
+	    echo "(spim not found: run it with  spim -file $$stem.s $(ARGS))"; \
+	fi
 
 clean:
 	rm -rf $(BUILD) $(EXE) $(LIB_ASM) test/output

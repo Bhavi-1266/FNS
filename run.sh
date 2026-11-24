@@ -4,6 +4,9 @@
 #
 #   ./run.sh ./fnsc                 run every test
 #   ./run.sh ./fnsc --show-ir       also print each program's three-address code
+#   ./run.sh ./fnsc --show-ir --log FILE
+#                                   save everything (IR, program output, results)
+#                                   in FILE; the terminal shows only PASS/FAIL lines
 #   ./run.sh ./fnsc 16_classes      run only tests whose name contains "16_classes"
 #   SIM=/path/to/spim ./run.sh ./fnsc
 #
@@ -25,10 +28,14 @@ set -u
 CC="./fnsc"
 SHOW_IR=0
 FILTER=""
+LOG=""
+want_log=0
 for a in "$@"; do
+    if [ "$want_log" -eq 1 ]; then LOG="$a"; want_log=0; continue; fi
     case "$a" in
         --show-ir) SHOW_IR=1 ;;
-        -h|--help) sed -n '3,22p' "$0"; exit 0 ;;
+        --log) want_log=1 ;;
+        -h|--help) sed -n '3,25p' "$0"; exit 0 ;;
         -*) echo "unknown option $a"; exit 2 ;;
         *) if [ -x "$a" ] && [ ! -d "$a" ]; then CC="$a"; else FILTER="$a"; fi ;;
     esac
@@ -46,6 +53,22 @@ if ! command -v "$SIM" >/dev/null 2>&1; then
     echo "       install it with:  sudo apt-get install spim"
     exit 2
 fi
+if [ -n "$LOG" ]; then
+    mkdir -p "$(dirname "$LOG")"
+    { echo "FNS compiler test run: $(date)"; echo "compiler: $CC   simulator: $SIM"; echo; } > "$LOG"
+fi
+
+# say: a result line - printed on the terminal and, with --log, also saved.
+say() {
+    echo "$@"
+    [ -n "$LOG" ] && echo "$@" >> "$LOG"
+    return 0
+}
+# detail: IR and program output - saved in the log with --log, otherwise printed.
+detail() {
+    if [ -n "$LOG" ]; then cat >> "$LOG"; else cat; fi
+}
+
 TIMEOUT=""
 command -v timeout >/dev/null 2>&1 && TIMEOUT="timeout 60"
 
@@ -78,15 +101,15 @@ for src in "$TESTDIR"/*.c "$TESTDIR"/*.cpp; do
     [ -f "$TESTDIR/args/$stem.args" ] && args="$(cat "$TESTDIR/args/$stem.args")"
 
     if ! "$CC" "$src" -o "$asm" --emit-ir "$ir" > "$OUTDIR/$stem.log" 2>&1; then
-        echo "FAIL  $name  (compilation failed)"
-        sed 's/^/        /' "$OUTDIR/$stem.log"
+        say "FAIL  $name  (compilation failed)"
+        sed 's/^/        /' "$OUTDIR/$stem.log" | tee -a "${LOG:-/dev/null}"
         fail=$((fail + 1)); failed="$failed $name"
         continue
     fi
     if [ "$SHOW_IR" -eq 1 ]; then
-        echo "==================== 3AC IR: $name  ($ir) ===================="
-        cat "$ir"
-        echo "==================== end of IR: $name ===================="
+        { echo "==================== 3AC IR: $name  ($ir) ===================="
+          cat "$ir"
+          echo "==================== end of IR: $name ===================="; } | detail
     fi
 
     if [ -f "$in" ]; then in="$(pwd)/$in"; else in=/dev/null; fi
@@ -106,16 +129,22 @@ for src in "$TESTDIR"/*.c "$TESTDIR"/*.cpp; do
             | strip_banner > "$OUTDIR/$stem.out"
     fi
 
+    if [ -n "$LOG" ]; then
+        { echo "-------------------- program output: $name --------------------"
+          cat "$OUTDIR/$stem.out"
+          echo "-------------------- end of output: $name --------------------"; } >> "$LOG"
+    fi
+
     if [ ! -f "$exp" ]; then
-        echo "?     $name  (no expected output; got test/output/$stem.out)"
+        say "?     $name  (no expected output; got test/output/$stem.out)"
         continue
     fi
     if diff -q "$exp" "$OUTDIR/$stem.out" >/dev/null; then
-        echo "PASS  $name"
+        say "PASS  $name"
         pass=$((pass + 1))
     else
-        echo "FAIL  $name   (diff: expected < > got)"
-        diff "$exp" "$OUTDIR/$stem.out" | head -20 | sed 's/^/        /'
+        say "FAIL  $name   (diff: expected < > got)"
+        diff "$exp" "$OUTDIR/$stem.out" | head -20 | sed 's/^/        /' | tee -a "${LOG:-/dev/null}"
         fail=$((fail + 1)); failed="$failed $name"
     fi
 done
@@ -131,21 +160,26 @@ for src in "$TESTDIR"/errors/*.c "$TESTDIR"/errors/*.cpp; do
     rc=$?
     sed -n '/^Errors:/,$p' "$OUTDIR/errors/$stem.log" > "$log"
     exp="$TESTDIR/errors/expected/$stem.err"
+    if [ -n "$LOG" ]; then
+        { echo "-------------------- compiler diagnostics: errors/$name --------------------"
+          cat "$log"; } >> "$LOG"
+    fi
     if [ "$rc" -ne 1 ]; then
-        echo "FAIL  errors/$name  (expected a compile error, exit status $rc)"
+        say "FAIL  errors/$name  (expected a compile error, exit status $rc)"
         fail=$((fail + 1)); failed="$failed errors/$name"
     elif [ -f "$exp" ] && ! diff -q "$exp" "$log" >/dev/null; then
-        echo "FAIL  errors/$name  (different diagnostics: expected < > got)"
-        diff "$exp" "$log" | sed 's/^/        /'
+        say "FAIL  errors/$name  (different diagnostics: expected < > got)"
+        diff "$exp" "$log" | sed 's/^/        /' | tee -a "${LOG:-/dev/null}"
         fail=$((fail + 1)); failed="$failed errors/$name"
     else
-        echo "PASS  errors/$name  ($(grep -c '^  ' "$log") error(s) reported)"
+        say "PASS  errors/$name  ($(grep -c '^  ' "$log") error(s) reported)"
         pass=$((pass + 1))
     fi
 done
 
-echo "------------------------------------------------------------"
-echo "Passed: $pass   Failed: $fail"
-echo "Assembly (.s), IR (.ir) and program output (.out) are in $OUTDIR/"
-[ -n "$failed" ] && echo "Failures:$failed"
+say "------------------------------------------------------------"
+say "Passed: $pass   Failed: $fail"
+say "Assembly (.s), IR (.ir) and program output (.out) are in $OUTDIR/"
+[ -n "$failed" ] && say "Failures:$failed"
+[ -n "$LOG" ] && echo "Full log (IR, program output and results): $LOG"
 [ "$fail" -eq 0 ]

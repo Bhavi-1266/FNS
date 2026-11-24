@@ -69,8 +69,8 @@ floating-point) instructions to use.
 |---|---|
 | Print the IR on the terminal | `./fnsc prog.c --print-ir` (or `-ir`) |
 | Write the IR to a file | `./fnsc prog.c --emit-ir` (→ `prog.ir`) or `--emit-ir out.ir` |
-| One file through make | `make run FILE=prog.c` (writes `prog.s` and `prog.ir`) |
-| Every test, IR printed | `make test` (runs `./run.sh ./fnsc --show-ir`) |
+| One file through make | `make run FILE=prog.c` (or `RUN=prog.c`, program arguments in `ARGS="…"`): prints the IR and the MIPS assembly on the terminal, keeps them in `prog.ir` and `prog.s`, then runs the program on spim |
+| Every test, IR saved | `make test`: PASS/FAIL on the terminal; every test's IR, its program output and the results are saved in `test/output/test_results.txt` |
 | Every test, PASS/FAIL only | `make check` (runs `./run.sh ./fnsc`) |
 | IR files of the tests | `test/output/NN_name.ir`, written on every run |
 
@@ -721,8 +721,10 @@ errors are reported, with the exact expected messages in `test/errors/expected/`
 ## 9. Testing
 
 ```bash
-make test     # build, run all 38 tests on spim, print each test's 3AC IR
+make test     # build, run all 38 tests on spim; full log with each test's IR and
+              #   program output in test/output/test_results.txt
 make check    # the same tests, PASS/FAIL only
+make run FILE=test/09_functions_recursion.c   # one program: IR + assembly + run
 ./run.sh ./fnsc 16_classes      # one test
 ```
 
@@ -772,4 +774,4 @@ the native compiler printed. Current result: **38 / 38 pass**. Other checks:
 | Floating point | 28 | typed IR; FPU instructions |
 | Object lifetime | 31 | scope/temporary destructor lists; `__global_init`/`__global_fini` |
 | Range-for, enum class | 32 | `gen_range_for`; scoped enumerators |
-| IR output | all | `--print-ir`, `--emit-ir`, `make test`, `test/output/*.ir` |
+| IR output | all | `--print-ir`, `--emit-ir`, `make run`, `make test` (`test/output/test_results.txt`), `test/output/*.ir` |

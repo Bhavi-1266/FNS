@@ -45,8 +45,10 @@ Prerequisites: `g++` (C++17), `flex`, `bison` 3.x, GNU `make`; `spim` to run pro
 ```bash
 sudo apt-get install -y g++ make flex bison spim
 make            # builds ./fnsc
-make test       # builds, runs every test and prints each test's 3AC IR (./run.sh ./fnsc --show-ir)
+make test       # builds and runs every test: PASS/FAIL on the terminal; each test's 3AC IR,
+                #   program output and the results are saved in test/output/test_results.txt
 make check      # the same tests, PASS/FAIL lines only
+make run FILE=prog.c   # compile one file, print its IR and assembly, run it on spim
 make clean
 ```
 
@@ -73,7 +75,8 @@ spim -file fact.s                                      # run
 ./fnsc test/16_classes.cpp --print-ir                  # show the 3AC IR on the terminal
 ./fnsc test/16_classes.cpp --emit-ir classes.ir        # save the IR in a file
 ./fnsc test/20_command_line.c -o args.s && spim -file args.s add 2 3
-make run FILE=test/03_loops.c                          # writes 03_loops.s and 03_loops.ir
+make run FILE=test/03_loops.c                          # prints the IR and assembly, then runs it
+make run RUN=test/20_command_line.c ARGS="add 2 3"     # RUN= works too; ARGS = program arguments
 ```
 
 `.c` files are compiled as C (no overloading; C++-only keywords such as `new`,
@@ -85,7 +88,10 @@ numbers and no assembly is written), `2` usage / file errors.
 
 ```bash
 ./run.sh ./fnsc                 # every test; prints PASS/FAIL and a summary
-./run.sh ./fnsc --show-ir       # also prints the three-address code of each test (what `make test` runs)
+./run.sh ./fnsc --show-ir       # also prints the three-address code of each test
+./run.sh ./fnsc --show-ir --log test/output/test_results.txt
+                                # what `make test` runs: everything saved in the log,
+                                #   PASS/FAIL lines on the terminal
 ./run.sh ./fnsc 16_classes      # only tests whose name contains the filter
 SIM=/path/to/spim ./run.sh ./fnsc
 ```

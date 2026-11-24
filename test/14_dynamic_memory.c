@@ -1,5 +1,6 @@
 /* Feature: dynamic memory: malloc, calloc, realloc, free, dynamic arrays, dynamic strings,
-   dynamic 2-D arrays, a linked list, a stack and a binary search tree on the heap. */
+   dynamic 2-D arrays, a linked list, a stack and a binary search tree on the heap,
+   allocation failure (an impossible size gives NULL and leaves old blocks intact). */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -95,5 +96,13 @@ int main() {
     printf("malloc after free ok: %d\n", p2 != NULL);
     free(p2);
     free(NULL);
+
+    /* allocation failure: NULL is returned, nothing is corrupted */
+    char *keep = malloc(8);
+    keep[0] = 'k'; keep[1] = 0;
+    printf("malloc(SIZE_MAX) -> %s\n", malloc((size_t)-1) == NULL ? "NULL" : "block");
+    char *grown = realloc(keep, (size_t)-1);
+    printf("failed realloc -> %s, old block still \"%s\"\n", grown == NULL ? "NULL" : "block", keep);
+    free(keep);
     return 0;
 }

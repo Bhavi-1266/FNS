@@ -370,7 +370,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 | Files | `fopen` modes `r w a r+ w+ a+` (`b` ignored); paths are relative to the directory spim runs in. `fseek`/`ftell`/`rewind` work (`SEEK_SET`/`SEEK_CUR`/`SEEK_END`); spim has no seek system call, so `fseek` reopens the file and reads forward to the position, which takes time proportional to the offset, and seeking past the end stops at the end. `remove()` always returns -1 (no delete system call). | full |
 | `time()` | returns 0 | wall clock |
 | Math | computed by the library in double precision (sqrt uses the FPU); results may differ from glibc in the last digits | libm |
-| Memory | `malloc` gets memory with spim's `sbrk`; freed blocks are reused; memory errors (double free, out-of-bounds) are not detected; a null or invalid dereference makes spim print an exception message (`Bad address in data/stack read`) and continue | |
+| Memory | `malloc` gets memory with spim's `sbrk`; freed blocks are reused; a failing `new` (negative array length, no memory) prints g++'s `terminate called after throwing an instance of 'std::bad_alloc'` message and aborts (there are no exceptions to catch); memory errors (double free, out-of-bounds) are not detected; a null or invalid dereference makes spim print an exception message (`Bad address in data/stack read`) and continue | |
 
 ### 9.8 Limits of the spim simulator (default settings)
 
@@ -378,7 +378,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 |---|---|---|
 | Code (text segment) | 64 KB (16K instructions) | the program plus the library functions it uses; typical programs use 5–10K instructions. A very long program (roughly 700+ lines of straight-line code) can exceed it: fnsc then prints a warning and the program must be run with `spim -stext 262144 -file prog.s` |
 | Static data (`.data`) | about 192 KB | uninitialised global arrays/objects larger than 32 KB are therefore allocated on the heap when `main` starts (transparent to the program) |
-| Data + heap | about 1 MB | `malloc` returns `NULL` / spim stops with `Can't expand data segment` beyond this; e.g. a global `int a[250000]` does not fit |
+| Data + heap | about 1 MB | beyond this spim stops the program with `Can't expand data segment` (the library cannot ask spim for the limit, so `malloc` returns `NULL` only for sizes larger than the address space, and `calloc` also when `n * size` overflows); e.g. a global `int a[250000]` does not fit |
 | Stack | about 512 KB (≈260 KB usable) | recursion of about 9,000 levels for a small function; local arrays of more than ~250 KB do not fit |
 | Speed | ~1.5 million instructions per second | a loop of 10⁶ iterations takes several seconds |
 

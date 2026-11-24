@@ -91,7 +91,7 @@ sit at offset 0.
 | Constructors, initialiser lists, destructors | `Class_Class(this, ...)`; bases and members initialize in declaration order; delete calls class destructors and frees storage |
 | Inheritance, `virtual` | vptr at offset 0; `vtable_X` in `.data`; a virtual call loads the vptr, loads the slot, then `call *t` |
 | Object construction `Circle c = Circle(2.5)` | constructed in place; other aggregate assignments use `copy` |
-| `new`/`delete` | `malloc` for scalar and array storage; constructors run for objects and each `new T[n]` element; `delete[]` destroys elements in reverse order |
+| `new`/`delete` | `t = call __fns_new, 3` (count, element size, header: 0 for `new T`, 4 for `new T[n]`, which stores the count) — `malloc` that aborts like an uncaught `std::bad_alloc` on failure; constructors run for objects and each `new T[n]` element; `delete[]` destroys elements in reverse order |
 | Lambdas | emitted as `lambda_N`; captured variables become trailing parameters, copied (`[=]`) or taken by address (`[&]`) into hidden locals at the point of creation |
 | `argc`/`argv` | ordinary parameters of `main`; the back end stores spim's `$a0`/`$a1` into them |
 | Global initialisers | constants go into `.data`; non-constant initialisers and global constructors run in `__global_init`, called at the top of `main`; destructors of global objects run in `__global_fini`, which `main` registers as the first exit handler; the exit handlers run before each `return` of `main` (`call __fns_run_atexit`) and in `exit()` |

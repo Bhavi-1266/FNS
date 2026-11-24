@@ -368,8 +368,10 @@ Multiple and virtual inheritance are not supported (README 9.6).
 
 ```
 // Shape *p = new Sq(3);  int a = p->area();  delete p;
+    param 1
     param 12
-    t1 = call malloc, 1                  ; void*
+    param 0
+    t1 = call __fns_new, 3               ; void*   1 object of 12 bytes, no header
     param t1
     param 3
     call Sq_Sq, 2                        // construct in the new storage
@@ -461,10 +463,18 @@ linked lists, stacks and binary search trees.
 **How:**
 - `malloc`/`free` are implemented in `src/lib/libfns.c` as a first-fit free-list
   allocator. It gets memory from spim with syscall 9 (`sbrk`) and reuses freed blocks.
-- `new T(args)` → `malloc(sizeof(T))` followed by the constructor call (see the
-  IR in 4.3).
-- `new T[n]` stores the element count in front of the array and constructs every
-  element. `delete[]` destroys them in reverse order before freeing the memory.
+- `malloc(n)` with a size larger than the address space (for example `(size_t)-1`)
+  returns `NULL`. `calloc` returns `NULL` when `n * size` overflows 32 bits, and a
+  failed `realloc` returns `NULL` and leaves the old block untouched. When the heap
+  really runs out, spim itself stops the program (`Can't expand data segment`).
+- `new T(args)` → `__fns_new(1, sizeof(T), 0)` followed by the constructor call (see
+  the IR in 4.3). `__fns_new` is `malloc` plus the C++ failure behaviour: a negative
+  array length or a failed allocation prints the same `terminate called after
+  throwing an instance of 'std::bad_array_new_length'` / `'std::bad_alloc'` message
+  as g++ and aborts, instead of constructing into a null pointer.
+- `new T[n]` → `__fns_new(n, sizeof(T), 4)`: the 4-byte header in front of the
+  array holds the element count; every element is constructed. `delete[]` destroys
+  them in reverse order before freeing the memory.
 - `delete p` calls the destructor (through the vtable if it is virtual), then `free`.
   `delete` of a null pointer does nothing.
 
@@ -805,7 +815,7 @@ the native compiler printed. Current result: **39 / 39 pass**. Other checks:
 | static | 11, 31 | `function_variable` globals; guarded first-use initialisation; exit-handler registration |
 | Function pointers | 12 | `call *p` → `jalr` |
 | Variadic functions | 13 | `__builtin_va_start` → `&__va_args`; stdarg macros in the prelude |
-| Dynamic memory | 14, 16 | `libfns.c` malloc/free on `sbrk`; `new`/`delete` lowering |
+| Dynamic memory | 14, 16 | `libfns.c` malloc/free on `sbrk`, `__fns_new`; `new`/`delete` lowering |
 | Lambdas | 15 | `lambda_N` functions with capture parameters |
 | Classes and objects | 16, 29, 31 | `Class_method(this, …)`; constructors/destructors; lifetime tracking |
 | Inheritance, virtual | 17, 29 | base-first layout; vptr + `vtable_Class`; indirect calls |

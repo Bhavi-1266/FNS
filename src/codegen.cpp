@@ -394,7 +394,7 @@ FuncInfo *CodeGen::external(const std::string &name) {
     fi->variadic = true;
     fi->ret = int_type();
     static const char *ptr_returning[] = {"malloc", "calloc", "realloc", "fopen", "strcpy",
-                                          "strcat", "memcpy", "memset", "fgets", nullptr};
+                                          "strcat", "memcpy", "memset", "fgets", "__fns_new", nullptr};
     for (int i = 0; ptr_returning[i]; ++i) {
         if (name == ptr_returning[i]) {
             fi->ret.base = Base::Void;
@@ -3724,13 +3724,13 @@ Val CodeGen::gen_member(Node *n, bool arrow) {
     return out;
 }
 
-// new T, new T(args), new T[n]: malloc plus constructor calls (with an element count
-// header for arrays).
+// new T, new T(args), new T[n]: __fns_new (malloc that ends the program like an
+// uncaught bad_alloc) plus constructor calls (with an element count header for arrays).
 // Comment: >30 lines because scalar, object and array forms differ.
 Val CodeGen::gen_new(Node *n) {
     TypeSpec t = resolve(*n->type);
     if (size_of(t) <= 0) error(n->line, "cannot allocate an incomplete or void type");
-    FuncInfo *malloc_fn = external("malloc");
+    FuncInfo *new_fn = external("__fns_new");
     Val out;
     out.k = Val::RVal;
     out.type = pointer_to(t);
@@ -3742,9 +3742,7 @@ Val CodeGen::gen_new(Node *n) {
              cnt.type.base == Base::Long || cnt.type.base == Base::Enum);
         if (!integer_count) error(n->line, "array allocation count must have an integer type");
         std::string count = convert(rvalue(cnt), cnt.type, int_type());
-        std::string bytes = emit_binop(count, "*", itos(size_of(t)), int_type());
-        std::string total = emit_binop(bytes, "+", "4", int_type());
-        Val allocation = emit_call(malloc_fn, "malloc", {total}, false);
+        Val allocation = emit_call(new_fn, "__fns_new", {count, itos(size_of(t)), "4"}, false);
         emit("*" + allocation.place + " = " + count, "int");
         out.place = offset_addr(allocation.place, 4, type_str(pointer_to(t)));
         ClassInfo *ci = is_aggregate(t) ? class_of(t) : nullptr;
@@ -3765,7 +3763,7 @@ Val CodeGen::gen_new(Node *n) {
         }
         return out;
     }
-    Val r = emit_call(malloc_fn, "malloc", {itos(size_of(t))}, false);
+    Val r = emit_call(new_fn, "__fns_new", {"1", itos(size_of(t)), "0"}, false);
     out.place = r.place;
     ClassInfo *ci = is_aggregate(t) ? class_of(t) : nullptr;
     if (ci) {

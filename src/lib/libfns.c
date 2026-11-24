@@ -74,6 +74,7 @@ int memcmp(const void *a, const void *b, unsigned int n) {
 void *malloc(unsigned int n) {
     struct __fns_blk *prev = 0;
     struct __fns_blk *b = __fns_free_list;
+    if (n > 0x7ffffff0u) return 0;          /* larger than the whole address space */
     if (n == 0) n = 1;
     n = (n + 7) & ~7u;
     while (b) {
@@ -109,7 +110,9 @@ void free(void *p) {
 }
 
 void *calloc(unsigned int n, unsigned int size) {
-    void *p = malloc(n * size);
+    void *p;
+    if (size && n > 0xffffffffu / size) return 0;   /* n * size overflows */
+    p = malloc(n * size);
     if (p) memset(p, 0, n * size);
     return p;
 }
@@ -161,6 +164,26 @@ void abort() {
     const char *m = "Aborted\n";
     while (*m) __sys_putc(*m++);
     __sys_exit(134);
+}
+
+/* C++ new: `count` objects of `size` bytes after a `header` (new[] stores the count).
+   A negative count or a failed allocation ends the program the way an uncaught
+   std::bad_array_new_length / std::bad_alloc does. */
+void *__fns_new(int count, unsigned int size, unsigned int header) {
+    const char *what = 0, *m;
+    void *p = 0;
+    if (count < 0 || (size && (unsigned int)count > (0x7ffffff0u - header) / size))
+        what = "std::bad_array_new_length";
+    else if (!(p = malloc((unsigned int)count * size + header)))
+        what = "std::bad_alloc";
+    if (!what) return p;
+    for (m = "terminate called after throwing an instance of '"; *m; m++) __sys_putc(*m);
+    for (m = what; *m; m++) __sys_putc(*m);
+    for (m = "'\n  what():  "; *m; m++) __sys_putc(*m);
+    for (m = what; *m; m++) __sys_putc(*m);
+    __sys_putc('\n');
+    abort();
+    return 0;
 }
 
 long time(void *t) { return 0; }

@@ -6,3 +6,5 @@ grid[2][3]=11 grid[1][0]=4
 cap=16 popped: 8 7 6 5 4 3 2 1 0
 20 30 35 40 50 60 70 80 height=4
 malloc after free ok: 1
+malloc(SIZE_MAX) -> NULL
+failed realloc -> NULL, old block still "k"

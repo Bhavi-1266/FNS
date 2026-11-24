@@ -117,24 +117,24 @@ native C/C++ compiler printed.
 | `01_operators.c` | all arithmetic, relational, logical (short-circuit), bitwise, shift, assignment, `++`/`--`, `?:`, comma operators; precedence; unsigned wrap; char escapes |
 | `02_if_else.c` | if / else-if chains, nesting, dangling else, conditions of type double/char/pointer |
 | `03_loops.c` | for (all parts optional), while, do-while, nested loops, loop-scoped variables |
-| `04_switch.c` | switch: fallthrough, default in the middle, nested, char/enum/negative/expression labels |
-| `05_arrays.c` | int and char arrays, partial init, inferred size, sorting/searching, strings, arrays of strings |
+| `04_switch.c` | switch: fallthrough, default in the middle, nested, char/enum/negative/expression labels, one scope for the whole body |
+| `05_arrays.c` | int and char arrays, partial init, inferred size, sorting/searching, strings, arrays of strings, designated initializers, variable-length arrays |
 | `06_pointers.c` | pointers, arithmetic, comparison, `void*`, NULL, `**`, `***`, pointers to structs, `int**` jagged arrays |
-| `07_structs.c` | structs, nested structs, arrays of structs, by-value/return, copy, typedef struct, linked nodes |
+| `07_structs.c` | structs, nested structs, arrays of structs, by-value/return, copy, typedef struct, linked nodes, designated initializers, bit-fields |
 | `08_printf_scanf.c` | printf (all conversions, flags, width, precision, `*`), scanf (ints, chars, strings, float/double, hex/octal, EOF), sprintf, sscanf |
 | `09_functions_recursion.c` | prototypes, many/mixed arguments, recursion (factorial, fibonacci, gcd, power, hanoi, ackermann, permutations, binary search), mutual recursion |
 | `10_goto_break_continue.c` | goto forward/backward/out of nested loops, break and continue in every loop and in switch |
 | `11_static.c` | static locals (incl. in recursion), static globals and functions, static arrays |
-| `12_function_pointers.c` | function pointers, typedef'd, arrays of them, callbacks, returning them, qsort comparators |
+| `12_function_pointers.c` | function pointers, typedef'd, arrays of them, callbacks, returning them (also without a typedef), pointers to function pointers, qsort comparators |
 | `13_varargs.c` | variable-argument functions with `va_list`/`va_start`/`va_arg`/`va_end`, `vprintf` |
-| `14_dynamic_memory.c` | malloc/calloc/realloc/free, dynamic arrays/strings/2-D arrays, linked list, stack, BST |
-| `15_lambda.cpp` | lambdas: captures by value/reference/`[=]`/`[&]`/mixed, immediate call, callbacks, deduced return types |
-| `16_classes.cpp` | classes and objects, constructors (overloaded, default, init lists, out-of-class), destructors at scope exit, static members, `this`, object arrays, `new`/`delete` |
+| `14_dynamic_memory.c` | malloc/calloc/realloc/free, dynamic arrays/strings/2-D arrays, linked list, stack, BST, allocation failure |
+| `15_lambda.cpp` | lambdas: captures by value/reference/`[=]`/`[&]`/mixed, immediate call, callbacks, deduced return types, `mutable` |
+| `16_classes.cpp` | classes and objects, constructors (overloaded, default, init lists, out-of-class, delegating), destructors at scope exit, static members, `this`, object arrays, `new`/`delete`, nested classes and enums |
 | `17_inheritance.cpp` | single and multi-level inheritance, virtual functions, abstract classes, `Base::f()`, virtual destructors, polymorphism through pointers and references |
-| `18_access_specifiers.cpp` | public / private / protected (violations are in `test/errors/e05_access.cpp`) |
-| `19_references.cpp` | reference variables, pass/return by reference, const references, references to objects and pointers |
+| `18_access_specifiers.cpp` | public / private / protected members and private / protected inheritance (violations are in `test/errors/e05_access.cpp`) |
+| `19_references.cpp` | reference variables, pass/return by reference, const references, references to objects and pointers, rvalue references, `std::move`, move constructor |
 | `20_command_line.c` | command-line input: `argc`, `argv` (arguments in `test/args/`) |
-| `21_file_io.c` | file manipulation: fopen modes, fprintf/fscanf, fgets/fputs, fgetc/fputc, fread/fwrite, feof, append |
+| `21_file_io.c` | file manipulation: fopen modes, fprintf/fscanf, fgets/fputs, fgetc/fputc, fread/fwrite, feof, append, fseek/ftell/rewind |
 | `22_typedef_enum_union.c` | typedef (scalars, pointers, arrays, structs, function pointers), enum, union, tagged unions |
 | `23_multidim_arrays.c` | 2-D/3-D arrays, nested/flat/partial initialisers, matrix multiply, arrays passed to functions |
 | `24_until_loop.c` | the FNS `do … until (cond);` loop |
@@ -144,9 +144,9 @@ native C/C++ compiler printed.
 | `28_floating_point.c` | float/double arithmetic, comparisons and conversions |
 | `29_oop_mixed.cpp` | classes, inheritance, virtual dispatch, dynamic objects |
 | `30_interactive_io.c` | reading from stdin with scanf / getchar |
-| `31_object_lifetime.cpp` | copy constructors, by-value objects, default arguments, global and static-local objects and their destruction order |
+| `31_object_lifetime.cpp` | copy constructors, by-value objects, default arguments, global and static-local objects (first-use initialisation, destruction order, `exit()`), destructors on `goto` |
 | `32_modern_cpp.cpp` | range-based `for` over arrays, `enum class` |
-| `33_array_pointer_arith.c` | multi-level pointers into multi-dimensional arrays `*(*(a+i)+j)`, casts to typedef/enum names, constant-expression array bounds |
+| `33_array_pointer_arith.c` | multi-level pointers into multi-dimensional arrays `*(*(a+i)+j)`, pointer-to-array variables `int (*p)[4]`, casts to typedef/enum names, constant-expression array bounds |
 | `errors/e01_syntax.c` … `e06_switch_scope.cpp` | syntax errors, undeclared names / wrong argument counts / undefined functions, type errors, misplaced break/continue/goto/duplicate case/const assignment, access-control violations (also through private/protected bases), a case label that jumps past an initialisation |
 
 Other checks: `tools/gate.sh` (grammar has 0 conflicts; the earlier-phase IR test
@@ -185,7 +185,7 @@ lines has a comment).
 | until loop | ✔ | 24 |
 | Multi-level pointers | ✔ | 06, 33 |
 | Multi-dimensional arrays | ✔ | 23, 33 |
-| Also | preprocessor macros, function/constructor overloading, default arguments, copy constructors, destructors at scope exit, range-for, `enum class`, string/ctype/stdlib/math library | 25–27, 31–32 |
+| Also | preprocessor macros, function/constructor overloading, default arguments, copy/move constructors, delegating constructors, destructors at scope exit, range-for, `enum class`, designated initializers, bit-fields, variable-length arrays, nested classes, rvalue references, `mutable` lambdas, string/ctype/stdlib/math library | 05, 07, 15, 16, 19, 25–27, 31–32 |
 
 ## 5. Three-address code (IR)
 
@@ -352,7 +352,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 | Virtual functions | vtable dispatch; pure virtual functions; virtual destructors. Instantiating an abstract class is not rejected (calling the pure function prints `pure virtual method called` and stops). | abstract classes rejected |
 | Constructors | overloads, default arguments, initializer lists, `T x(args)`, `T x{args}`, `T x = T(args)`, `new T(args)`, arrays of objects (default constructor), delegating constructors (`A() : A(0)`, which must be the only initializer). | full |
 | Converting constructor | a constructor taking one argument is used implicitly: `V v = 7;`, `f(8)` for a `V` or `const V&` parameter. `explicit` is not supported. | same |
-| Copy constructor | used for `T b = a;`, `T b(a);` and passing a named object by value. A temporary (e.g. the result of a call, `T b = make();`) is moved with a byte copy, which matches the copy elision g++ performs. Returning an object by value and assignment `b = a` copy the bytes (no `operator=`). | always used (elided for temporaries) |
+| Copy constructor | used for `T b = a;`, `T b(a);` and passing a named object by value (`std::move(a)` uses the move constructor `T(T&&)` when there is one). A temporary (e.g. the result of a call, `T b = make();`) is moved with a byte copy, which matches the copy elision g++ performs. Returning an object by value and assignment `b = a` copy the bytes (no `operator=`). | always used (elided for temporaries) |
 | Destructors | run at the end of each block, on `return`, `break` and `continue`, for temporaries (`Point(1, 2)`, objects returned by value, by-value argument copies) at the end of the statement, for `delete`/`delete[]`, and for global and static-local objects when `main` returns or `exit()` is called, in reverse order of construction (static locals register their destructor when they are constructed, as C++ runtimes do with `__cxa_atexit`). Temporaries created in the condition of `if`/`while`/`for` are destroyed after the whole statement. A `goto` out of blocks also runs them (see `goto` in 9.4). | full |
 | References | lvalue references (variables, parameters, returns, members), including `return a > b ? a : b;` from a function returning `int&`; rvalue references `T&&` for variables and parameters (they bind temporaries and `std::move(x)`, binding a named variable is an error; overloads on `T&` / `T&&` pick by value category); move constructors `T(T&&)` run for `T b = std::move(a)` and for `std::move(a)` passed by value. `std::move` is the only `std::` function (a builtin); there is no `std::forward`, move assignment (`operator=`) or function returning `T&&`. | full |
 | Lambdas | captures by value/reference, `[=]`, `[&]`, mixed lists; return type deduced from the first `return` when `->` is omitted; `mutable` lambdas (copies captured by value can be changed and keep their value between calls); changing a by-value capture in a lambda that is not `mutable` is an error, as in C++. A capture-free lambda converts to a function pointer; a capturing lambda cannot be passed as a function pointer or stored except in an `auto` variable. Generic (`auto` parameter) lambdas are not supported. | closures |

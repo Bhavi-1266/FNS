@@ -158,10 +158,11 @@ native C/C++ compiler printed.
 | `34_optimizations.c` | IR optimisations keep every result: folding with 32-bit wrap-around, signed `/` `%` of negative numbers (not turned into shifts), unsigned `/` `%` with the top bit set, `f() * 0` still calls `f`, unsigned comparisons with large literals, copies of a `?:` result, constants that reach a label on all paths or only some, a variable changed in a loop, peephole identities, local dead stores, common subexpressions, `break`/`continue`/`goto` chains |
 | `errors/e01_syntax.c` … `e06_switch_scope.cpp` | syntax errors, undeclared names / wrong argument counts / undefined functions, type errors, misplaced break/continue/goto/duplicate case/const assignment, access-control violations (also through private/protected bases), a case label that jumps past an initialisation |
 
-Other checks: `tools/gate.sh` (grammar has 0 conflicts; the earlier-phase IR test
-programs in `test/ir_phase/` still compile; IR structure checks; 67 expected
-semantic errors), `tools/check_long_functions.py` (every function longer than 30
-lines has a comment).
+Other checks: `tools/gate.sh` (fails unless the grammar has no conflicts, every
+`valid_*` program in `test/ir_phase/` compiles cleanly and its IR passes the
+structure checks, and the deliberate-error files report exactly their expected
+errors), `tools/check_long_functions.py` (every function longer than 30 lines has
+a comment).
 
 ## 4. Feature checklist
 
@@ -249,7 +250,7 @@ The steps repeat until nothing changes:
 | Constant folding | `t = 3 * 4` → `t = 12`; `ifFalse 1 goto L` → removed, `ifFalse 0 goto L` → `goto L` | 32-bit wrap-around exactly as the MIPS instructions compute it; division by zero, `INT_MIN / -1` and shifts outside 0..31 are left for run time; only `int`/`long`/`unsigned` results are folded (no `float`/`double`) |
 | Constant propagation | `size = 4; t1 = size * 2` → `t1 = 4 * 2` (then folded to `8`); `scale = 4` before a loop → `i * 4` inside it | across basic blocks by a data-flow analysis: at a label a variable is a constant only if it has the same constant on every path that reaches the label (a variable changed inside a loop is not); only locals, parameters and temporaries whose address is never taken (no call or `*p = …` can change them); a literal replaces only a 4-byte integer variable, and never an `unsigned` operand of a comparison (a literal compares as signed) |
 | Copy propagation | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t2 = i * k; r = t2` → `r = i * k` | within one basic block; the copy and its source must have exactly the same type; the temporary of `t = e; v = t` must be assigned and read exactly once; a `param` is only rewritten when nothing but other `param`s stands between it and the `call` that takes it (arguments are read at the call) |
-| Peephole identities and strength reduction | `x ^ 0`, `x \| 0`, `x << 0`, `x >> 0` → `x`; `x & 0`, `x - x`, `x ^ x` → `0`; `i * 8` → `i << 3`; unsigned `u / 8` → `u >> 3`, `u % 8` → `u & 7`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0`, `x % 1` → `0` | applied only to plain 32-bit integer expressions with safe, trackable operands; signed `/` and `%` by powers of two stay real divisions |
+| Peephole identities and strength reduction | `x ^ 0`, `x \| 0`, `x << 0`, `x >> 0`, `x & -1` → `x`; `x \| -1` → `-1`; `x & 0`, `x - x`, `x ^ x` → `0`; `i * 8` → `i << 3`; unsigned `u / 8` → `u >> 3`, `u % 8` → `u & 7`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0`, `x % 1` → `0` | applied only to plain 32-bit integer expressions with safe, trackable operands; signed `/` and `%` by powers of two stay real divisions |
 | Common-subexpression elimination | `t1 = a + b; t2 = a + b` → reuse `t1` | limited to pure integer expressions in one basic block; invalidated when an operand changes; calls and control-flow boundaries end the window |
 | Dead-store elimination | `x = 1; x = 2` → `x = 2` | limited to scalar integer locals/parameters in straight-line code; address-taken variables, calls, memory operations and control-flow boundaries are conservatively excluded |
 | Jump clean-up | `goto L1 … L1: goto L2` → `goto L2`; `goto L; L:` → `L:`; `ifFalse c goto L1; goto L2; L1:` → `if c goto L2`; code after `goto`/`return` that no label reaches, and labels nothing jumps to, are deleted | only jumps and unreachable code change; removing an unused label also lets the next block share the facts of the previous one |
@@ -269,12 +270,10 @@ Example: `int size = 4; int k = size * 2; int r = i * k; unsigned int m = u % 8;
     m = t4            ; unsigned int
 ```
 
-Over the 34 test programs plus about 190 extra programs, the optimised and
-unoptimised compilers print identical output (the only differences seen were a
-division by zero, which is undefined, and the byte count in spim's message for a
-program that overflows the stack); the IR shrinks by about 7% and the generated
-assembly (runtime library included) by about 9%. Optimisation is on by default;
-the runtime library embedded in `fnsc` is always the optimised one.
+Every test passes both with and without `-O0`, and extra programs compiled
+with and without the optimiser print identical output (apart from programs whose
+behaviour is undefined, such as a division by zero). Optimisation is on by
+default; the runtime library embedded in `fnsc` is always the optimised one.
 
 ## 6. Source layout
 
@@ -312,9 +311,8 @@ the runtime library embedded in `fnsc` is always the optimised one.
   on top of spim system calls: console output uses `print_char`, console input
   `read(0)` (so end of input is detected), files use spim's `open/read/write/close`
   system calls with host `O_*` flags.
-* **Speed.** spim executes roughly 1.5 million MIPS instructions per second, and
-  generated loops take about 10–20 instructions per iteration, so a loop of 10⁶
-  iterations runs for several seconds in the simulator.
+* **Speed.** spim interprets every instruction, so programs with very long loops
+  run much more slowly than the same program compiled natively.
 * **Program start/exit.** spim's start-up code calls `main` with `argc`/`argv`;
   `main` first runs the dynamic global initialisers (and global constructors) and,
   before returning, the destructors of global and static objects.
@@ -338,8 +336,8 @@ prototypes of these functions are supplied automatically.
 printf/scanf support `d i u x X o c s f F e E g G p n %`, flags `- + space # 0`,
 width and precision (also `*`), and length modifiers `hh h l ll L z` (all integers
 are 32-bit, see below). `%f`/`%e`/`%g` round like glibc for the usual precisions
-(up to about 15 significant digits; exact halfway cases are rounded to even as glibc
-does); beyond that the last digits can differ.
+(exact halfway cases are rounded to even as glibc does); at very high precisions
+the last digits can differ.
 `rand()`/`srand()` produce exactly glibc's sequence.
 
 ## 9. Differences from C and C++
@@ -435,11 +433,11 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 
 | Resource | Limit | Effect |
 |---|---|---|
-| Code (text segment) | 64 KB (16K instructions) | the program plus the library functions it uses; typical programs use 5–10K instructions. A very long program (roughly 700+ lines of straight-line code) can exceed it: fnsc then prints a warning and the program must be run with `spim -stext 262144 -file prog.s` |
-| Static data (`.data`) | about 192 KB | uninitialised global arrays/objects larger than 32 KB are therefore allocated on the heap when `main` starts (transparent to the program) |
-| Data + heap | about 1 MB | beyond this spim stops the program with `Can't expand data segment` (the library cannot ask spim for the limit, so `malloc` returns `NULL` only for sizes larger than the address space, and `calloc` also when `n * size` overflows); e.g. a global `int a[250000]` does not fit |
-| Stack | about 512 KB (≈260 KB usable) | recursion of about 9,000 levels for a small function; local arrays of more than ~250 KB do not fit |
-| Speed | ~1.5 million instructions per second | a loop of 10⁶ iterations takes several seconds |
+| Code (text segment) | 64 KB (16K instructions) | the program plus the library functions it uses. A very long program can exceed it: fnsc then prints a warning and the program must be run with `spim -stext 262144 -file prog.s` |
+| Static data (`.data`) | small (spim default) | uninitialised global arrays/objects larger than 32 KB are therefore allocated on the heap when `main` starts (transparent to the program) |
+| Data + heap | spim default | beyond this spim stops the program with `Can't expand data segment` (the library cannot ask spim for the limit, so `malloc` returns `NULL` only for sizes larger than the address space, and `calloc` also when `n * size` overflows); e.g. a global `int a[250000]` does not fit |
+| Stack | spim default | limits recursion depth and the size of local arrays; very deep recursion or very large local arrays overflow it |
+| Speed | interpreted | long-running loops take noticeably longer than native code |
 
 These are spim's defaults; `spim -ldata <bytes> -lstack <bytes> -file prog.s` raises them.
 

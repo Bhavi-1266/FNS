@@ -181,5 +181,5 @@ say "------------------------------------------------------------"
 say "Passed: $pass   Failed: $fail"
 say "Assembly (.s), IR (.ir) and program output (.out) are in $OUTDIR/"
 [ -n "$failed" ] && say "Failures:$failed"
-[ -n "$LOG" ] && echo "Full log (IR, program output and results): $LOG"
+[ -n "$LOG" ] && echo "Full log (program output and results; IR too with --show-ir): $LOG"
 [ "$fail" -eq 0 ]

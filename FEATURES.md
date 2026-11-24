@@ -36,8 +36,8 @@ difference from C/C++ in section 9. The exact IR format is in
       │                       and lowering to three-address code
       ▼
  3AC IR
-      │  src/optimize.cpp     constant folding, constant/copy propagation, strength reduction,
-      │                       jump clean-up
+      │  src/optimize.cpp     constant folding, constant/copy propagation, peephole identities,
+      │                       strength reduction, common subexpressions, dead stores, jump clean-up
       ▼
  optimised 3AC IR  ────────►  --print-ir / --emit-ir / test/output/*.ir
       │  src/mips.cpp         MIPS32 code generation, linking of the runtime functions used
@@ -52,7 +52,7 @@ difference from C/C++ in section 9. The exact IR format is in
 | Lexer | `src/lexer.l` | Produces tokens. It asks the declaration table whether a name is a `typedef`/class name and returns `TYPE_NAME` if so (the standard C "lexer hack"). In `.c` files, C++-only keywords (`class`, `new`, `public`…) are ordinary identifiers. |
 | Parser | `src/parser.y` | Bison grammar for the C/C++ subset, with 0 shift/reduce and 0 reduce/reduce conflicts. It builds the AST. |
 | Semantic analysis + IR | `src/codegen.cpp` | One pass over the AST. It keeps a scope stack of symbols with full types, lays out structs and classes, builds vtables, resolves overloads, checks access and types, and emits the three-address code. |
-| Optimiser | `src/optimize.cpp` | Rewrites the IR of each function: constant folding, constant propagation across basic blocks, copy propagation within a block, strength reduction, jump clean-up, removal of temporaries nobody reads (section 2.1). `-O0` turns it off. |
+| Optimiser | `src/optimize.cpp` | Rewrites the IR of each function: constant folding, constant propagation across basic blocks, copy propagation within a block, peephole identities and strength reduction, common-subexpression and dead-store elimination within a block, jump clean-up, removal of temporaries nobody reads (section 2.1). `-O0` turns it off. |
 | Back end | `src/mips.cpp` | Turns each IR instruction into MIPS32, assigns stack slots, emits `.data`, and appends only the runtime-library functions the program reaches. |
 | Runtime | `src/lib/libfns.c`, `src/runtime.s` | The C library (printf, scanf, files, strings, malloc, math), written in FNS and compiled by fnsc itself, plus a few hand-written lines of spim system calls. |
 
@@ -75,7 +75,8 @@ floating-point) instructions to use.
 | Print the IR on the terminal | `./fnsc prog.c --print-ir` (or `-ir`) |
 | Write the IR to a file | `./fnsc prog.c --emit-ir` (→ `prog.ir`) or `--emit-ir out.ir` |
 | One file through make | `make run FILE=prog.c` (or `RUN=prog.c`, program arguments in `ARGS="…"`): prints the IR and the MIPS assembly on the terminal, keeps them in `prog.ir` and `prog.s`, then runs the program on spim |
-| Every test, IR saved | `make test`: PASS/FAIL on the terminal; every test's IR, its program output and the results are saved in `test/output/test_results.txt` |
+| Every test, IR saved | `make test`: PASS/FAIL on the terminal; every test's IR is saved in `test/output/NN_name.ir`, and the program outputs and results in `test/output/test_results.txt` |
+| Every test, IR printed | `make test ir`: the same, and each test's IR is also printed on the terminal and added to the log |
 | Every test, PASS/FAIL only | `make check` (runs `./run.sh ./fnsc`) |
 | IR files of the tests | `test/output/NN_name.ir`, written on every run |
 | The IR before optimisation | add `-O0`, e.g. `./fnsc prog.c -O0 --print-ir` |
@@ -92,35 +93,35 @@ functions used) and `.text` (functions).
 included) between IR generation and the back end. The IR is text, and the back
 end decides each operand's width, signedness and integer/floating kind from that
 operand's own type, so every rewrite is restricted to cases where the operand
-keeps its type. One round runs four steps, and rounds repeat until nothing
+keeps its type. One round runs six steps, and rounds repeat until nothing
 changes (at most 10):
 
 1. **jumps** — jump clean-up (table below);
 2. **merge** — `t = e; v = t` becomes `v = e` when `t` is assigned once and read once and both have the same type;
 3. **forward** — walks each basic block with a table `name → constant or name it equals`. At a label the table is reset to the constants that every path into the label agrees on: `label_constants()` splits the function into basic blocks, links each block to its successors (jump target, fall-through) and iterates a forward data-flow analysis to a fixed point, the meet keeping only the names with the same constant on all incoming edges. Each instruction's operands are replaced from the table, the instruction is folded if all operands are literals, then strength-reduced. Its definition then removes stale table entries and may add a new one;
-4. **sweep** — deletes definitions of temporaries that are no longer read (never calls) and self-copies.
+4. **common_subexpressions** — within a basic block, a pure integer expression computed again with the same operands and types reuses the earlier result;
+5. **dead_stores** — within straight-line code, an assignment to a scalar integer local or parameter that is overwritten before anything reads it is deleted;
+6. **sweep** — deletes definitions of temporaries that are no longer read (never calls) and self-copies.
 
 | Optimisation | Example (before → after) | Rule that keeps it correct |
 |---|---|---|
 | Constant folding | `t = 3 * 4` → `t = 12`; `ifFalse 1 goto L` → removed, `ifFalse 0 goto L` → `goto L` | 32-bit wrap-around exactly as the MIPS instructions compute it; division by zero, `INT_MIN / -1` and shifts outside 0..31 are left for run time; only `int`/`long`/`unsigned` results are folded (no `float`/`double`) |
 | Constant propagation | `size = 4; t1 = size * 2` → `t1 = 4 * 2` (then folded to `8`); `scale = 4` before a loop → `i * 4` inside it | across basic blocks by a data-flow analysis: at a label a variable is a constant only if it has the same constant on every path that reaches the label (a variable changed inside a loop is not); only locals, parameters and temporaries whose address is never taken (no call or `*p = …` can change them); a literal replaces only a 4-byte integer variable, and never an `unsigned` operand of a comparison (a literal compares as signed) |
 | Copy propagation | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t2 = i * k; r = t2` → `r = i * k` | within one basic block; the copy and its source must have exactly the same type; the temporary of `t = e; v = t` must be assigned and read exactly once; a `param` is only rewritten when nothing but other `param`s stands between it and the `call` that takes it (arguments are read at the call) |
-| Strength reduction | `i * 8` → `i << 3`; `8 * i` → `i << 3`; unsigned `u / 8` → `u >> 3`, `u % 8` → `u & 7`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0`, `x % 1` → `0` | signed `/` and `%` by a power of two stay real divisions (they round toward zero, a shift rounds down) |
+| Peephole identities and strength reduction | `x ^ 0`, `x \| 0`, `x << 0`, `x >> 0`, `x & -1` → `x`; `x \| -1` → `-1`; `x & 0`, `x - x`, `x ^ x` → `0`; `i * 8` → `i << 3`; `8 * i` → `i << 3`; unsigned `u / 8` → `u >> 3`, `u % 8` → `u & 7`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0`, `x % 1` → `0` | only plain 32-bit integer expressions whose variable operand is trackable; signed `/` and `%` by a power of two stay real divisions (they round toward zero, a shift rounds down) |
+| Common-subexpression elimination | `t1 = a + b; t2 = a + b` → `t2 = t1` | pure integer operators only, within one basic block; the operands' types are part of the match; an entry is dropped when its result or an operand is reassigned; labels, calls and other non-assignments end the window |
+| Dead-store elimination | `x = 12; x = a + b` → `x = a + b` | only scalar integer locals/parameters whose address is never taken, in straight-line code; any read of the variable, a jump, a call, a `copy` or any other instruction ends the window |
 | Jump clean-up | `goto L1 … L1: goto L2` → `goto L2`; `goto L; L:` → `L:`; `ifFalse c goto L1; goto L2; L1:` → `if c goto L2`; code after `goto`/`return` that no label reaches, and labels nothing jumps to, are deleted | only jumps and unreachable code change; removing an unused label also lets the next block share the facts of the previous one |
 | Dead temporaries | temporaries no longer read after the steps above are deleted, as are self-copies `x = x` | a call is never deleted, even if its result is unused |
 
 `ifFalse` on a folded constant becomes `goto` or disappears, and the jump clean-up
-then deletes the branch that can no longer run. Copies and common integer
-subexpressions are handled within a basic block; dead stores are removed only for
-plain scalar integer locals/parameters in straight-line code. Calls, branches,
-memory operations and address-taken variables are conservatively excluded. The
-compiler prints the counts of common expressions reused and dead stores removed
-alongside the other optimization statistics.
+then deletes the branch that can no longer run. When it optimises, the compiler
+prints a one-line summary of what each step changed.
 
 Verification: test 34 (expected output from gcc), all other tests (also run
-with `-O0`), and about 190 extra programs compiled with and without the
-optimiser print identical output, apart from a division by zero (undefined) and
-the byte count in spim's stack-overflow message.
+with `-O0`), and extra programs compiled with and without the optimiser print
+identical output, apart from programs whose behaviour is undefined (such as a
+division by zero).
 
 ---
 
@@ -372,7 +373,7 @@ end of `main` run the registered destructors in reverse order of construction.
 restores them. Locals live in the frame, so each recursive call has its own copy.
 Tested with factorial, Fibonacci, gcd, power, Hanoi, Ackermann, permutations,
 binary search and mutual recursion. Recursion depth is limited only by spim's
-stack, about 9,000 levels.
+stack size.
 
 ```mips
 U_add:                         # int add(int a, int b)
@@ -873,15 +874,17 @@ there are errors (exit status 1). Checks include:
 
 The negative tests `test/errors/e01_syntax.c` … `e06_switch_scope.cpp` check that these
 errors are reported, with the exact expected messages in `test/errors/expected/`.
-`tools/gate.sh` runs two larger files with 67 deliberate semantic errors.
+`tools/gate.sh` runs two larger files of deliberate semantic errors and checks that
+each expected error, and nothing else, is reported.
 
 ---
 
 ## 9. Testing
 
 ```bash
-make test     # build, run all 40 tests on spim; full log with each test's IR and
-              #   program output in test/output/test_results.txt
+make test     # build, run every test on spim; IR in test/output/*.ir, program
+              #   output and results in test/output/test_results.txt
+make test ir  # the same, and also print each test's IR
 make check    # the same tests, PASS/FAIL only
 make run FILE=test/09_functions_recursion.c   # one program: IR + assembly + run
 ./run.sh ./fnsc 16_classes      # one test
@@ -894,8 +897,10 @@ For every program `test/NN_name.c|cpp`, `run.sh`:
 
 The expected outputs were generated by compiling the **same sources with gcc/g++**
 (`tools/make_expected.sh`), so a passing test means fnsc + spim printed exactly what
-the native compiler printed. Current result: **40 / 40 pass**. Other checks:
-`tools/gate.sh` (grammar conflicts, semantic-error coverage, IR structure) and
+the native compiler printed. Every test passes. Other checks:
+`tools/gate.sh` (fails on any grammar conflict, any `valid_*` IR-phase program
+that does not compile cleanly, an IR structure problem, or a missing/extra
+expected error) and
 `tools/check_long_functions.py` (every function longer than 30 lines has a comment).
 
 ---
@@ -934,4 +939,4 @@ the native compiler printed. Current result: **40 / 40 pass**. Other checks:
 | Floating point | 28 | typed IR; FPU instructions |
 | Object lifetime | 31 | scope/temporary destructor lists; `__global_init`/`__global_fini`; `__fns_atexit` in `libfns.c` |
 | Range-for, enum class | 32 | `gen_range_for`; scoped enumerators |
-| IR output | all | `--print-ir`, `--emit-ir`, `make run`, `make test` (`test/output/test_results.txt`), `test/output/*.ir` |
+| IR output | all | `--print-ir`, `--emit-ir`, `make run`, `make test` (`test/output/*.ir`), `make test ir` (also printed) |

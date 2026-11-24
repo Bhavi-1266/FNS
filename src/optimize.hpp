@@ -11,11 +11,14 @@ struct OptStats {
     int constants = 0;    // uses of a variable replaced by its known constant
     int copies = 0;       // uses of a copy replaced by its source (incl. t = e; v = t)
     int reduced = 0;      // multiplications/divisions turned into shifts/masks/copies
-    int removed = 0;      // instructions deleted (dead temporaries, self-copies, branches)
+    int jumps = 0;        // jumps retargeted, inverted or deleted
+    int removed = 0;      // instructions deleted (dead temporaries, self-copies, branches,
+                          // unreachable code, unused labels)
 };
 
 // Optimise every function of the module in place: constant folding, constant
-// and copy propagation within basic blocks, and strength reduction.
+// propagation (across basic blocks), copy propagation (within a block),
+// strength reduction and jump clean-up.
 OptStats optimize(Module &mod);
 
 }

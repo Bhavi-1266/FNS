@@ -136,7 +136,8 @@ int main(int argc, char **argv) {
         fns::OptStats st = fns::optimize(mod);
         std::cout << "Optimised IR: " << st.folded << " constant(s) folded, " << st.constants
                   << " constant(s) and " << st.copies << " copy(ies) propagated, " << st.reduced
-                  << " strength reduction(s), " << st.removed << " instruction(s) removed\n";
+                  << " strength reduction(s), " << st.jumps << " jump(s) cleaned up, "
+                  << st.removed << " instruction(s) removed\n";
     }
 
     if (opt.want_ir) {

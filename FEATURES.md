@@ -36,7 +36,8 @@ difference from C/C++ in section 9. The exact IR format is in
       │                       and lowering to three-address code
       ▼
  3AC IR
-      │  src/optimize.cpp     constant folding, constant/copy propagation, strength reduction
+      │  src/optimize.cpp     constant folding, constant/copy propagation, strength reduction,
+      │                       jump clean-up
       ▼
  optimised 3AC IR  ────────►  --print-ir / --emit-ir / test/output/*.ir
       │  src/mips.cpp         MIPS32 code generation, linking of the runtime functions used
@@ -51,7 +52,7 @@ difference from C/C++ in section 9. The exact IR format is in
 | Lexer | `src/lexer.l` | Produces tokens. It asks the declaration table whether a name is a `typedef`/class name and returns `TYPE_NAME` if so (the standard C "lexer hack"). In `.c` files, C++-only keywords (`class`, `new`, `public`…) are ordinary identifiers. |
 | Parser | `src/parser.y` | Bison grammar for the C/C++ subset, with 0 shift/reduce and 0 reduce/reduce conflicts. It builds the AST. |
 | Semantic analysis + IR | `src/codegen.cpp` | One pass over the AST. It keeps a scope stack of symbols with full types, lays out structs and classes, builds vtables, resolves overloads, checks access and types, and emits the three-address code. |
-| Optimiser | `src/optimize.cpp` | Rewrites the IR of each function: constant folding, constant and copy propagation within basic blocks, strength reduction, removal of temporaries nobody reads (section 2.1). `-O0` turns it off. |
+| Optimiser | `src/optimize.cpp` | Rewrites the IR of each function: constant folding, constant propagation across basic blocks, copy propagation within a block, strength reduction, jump clean-up, removal of temporaries nobody reads (section 2.1). `-O0` turns it off. |
 | Back end | `src/mips.cpp` | Turns each IR instruction into MIPS32, assigns stack slots, emits `.data`, and appends only the runtime-library functions the program reaches. |
 | Runtime | `src/lib/libfns.c`, `src/runtime.s` | The C library (printf, scanf, files, strings, malloc, math), written in FNS and compiled by fnsc itself, plus a few hand-written lines of spim system calls. |
 
@@ -91,29 +92,34 @@ functions used) and `.text` (functions).
 included) between IR generation and the back end. The IR is text, and the back
 end decides each operand's width, signedness and integer/floating kind from that
 operand's own type, so every rewrite is restricted to cases where the operand
-keeps its type. One round runs three steps, and rounds repeat until nothing
+keeps its type. One round runs four steps, and rounds repeat until nothing
 changes (at most 10):
 
-1. **merge** — `t = e; v = t` becomes `v = e` when `t` is assigned once and read once and both have the same type;
-2. **forward** — walks each basic block with a table `name → constant or name it equals`. Each instruction's operands are replaced from the table, the instruction is folded if all operands are literals, then strength-reduced. Its definition then removes stale table entries and may add a new one;
-3. **sweep** — deletes definitions of temporaries that are no longer read (never calls) and self-copies.
+1. **jumps** — jump clean-up (table below);
+2. **merge** — `t = e; v = t` becomes `v = e` when `t` is assigned once and read once and both have the same type;
+3. **forward** — walks each basic block with a table `name → constant or name it equals`. At a label the table is reset to the constants that every path into the label agrees on: `label_constants()` splits the function into basic blocks, links each block to its successors (jump target, fall-through) and iterates a forward data-flow analysis to a fixed point, the meet keeping only the names with the same constant on all incoming edges. Each instruction's operands are replaced from the table, the instruction is folded if all operands are literals, then strength-reduced. Its definition then removes stale table entries and may add a new one;
+4. **sweep** — deletes definitions of temporaries that are no longer read (never calls) and self-copies.
 
 | Optimisation | Example (before → after) | Rule that keeps it correct |
 |---|---|---|
 | Constant folding | `t = 3 * 4` → `t = 12`; `ifFalse 1 goto L` → removed, `ifFalse 0 goto L` → `goto L` | 32-bit wrap-around exactly as the MIPS instructions compute it; division by zero, `INT_MIN / -1` and shifts outside 0..31 are left for run time; only `int`/`long`/`unsigned` results are folded (no `float`/`double`) |
-| Constant propagation | `size = 4; t1 = size * 2` → `t1 = 4 * 2` (then folded to `8`) | inside one basic block (a label forgets everything); only locals, parameters and temporaries whose address is never taken (no call or `*p = …` can change them); a literal replaces only a 4-byte integer variable, and never an `unsigned` operand of a comparison (a literal compares as signed) |
-| Copy propagation | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t2 = i * k; r = t2` → `r = i * k` | the copy and its source must have exactly the same type; the temporary of `t = e; v = t` must be assigned and read exactly once; a `param` is only rewritten when nothing but other `param`s stands between it and its `call` (arguments are read at the call) |
+| Constant propagation | `size = 4; t1 = size * 2` → `t1 = 4 * 2` (then folded to `8`); `scale = 4` before a loop → `i * 4` inside it | across basic blocks by a data-flow analysis: at a label a variable is a constant only if it has the same constant on every path that reaches the label (a variable changed inside a loop is not); only locals, parameters and temporaries whose address is never taken (no call or `*p = …` can change them); a literal replaces only a 4-byte integer variable, and never an `unsigned` operand of a comparison (a literal compares as signed) |
+| Copy propagation | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t2 = i * k; r = t2` → `r = i * k` | within one basic block; the copy and its source must have exactly the same type; the temporary of `t = e; v = t` must be assigned and read exactly once; a `param` is only rewritten when nothing but other `param`s stands between it and the `call` that takes it (arguments are read at the call) |
 | Strength reduction | `i * 8` → `i << 3`; `8 * i` → `i << 3`; unsigned `u / 8` → `u >> 3`, `u % 8` → `u & 7`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0`, `x % 1` → `0` | signed `/` and `%` by a power of two stay real divisions (they round toward zero, a shift rounds down) |
+| Jump clean-up | `goto L1 … L1: goto L2` → `goto L2`; `goto L; L:` → `L:`; `ifFalse c goto L1; goto L2; L1:` → `if c goto L2`; code after `goto`/`return` that no label reaches, and labels nothing jumps to, are deleted | only jumps and unreachable code change; removing an unused label also lets the next block share the facts of the previous one |
 | Dead temporaries | temporaries no longer read after the steps above are deleted, as are self-copies `x = x` | a call is never deleted, even if its result is unused |
 
-`ifFalse` on a folded constant becomes `goto` or disappears; the code after it is
-kept (unreachable code is not removed). Propagation does not cross labels, so a
-value known before a loop is not used inside it. The compiler prints a summary
-line such as `Optimised IR: 27 constant(s) folded, 33 constant(s) and 21 copy(ies)
-propagated, 10 strength reduction(s), 19 instruction(s) removed`.
+`ifFalse` on a folded constant becomes `goto` or disappears, and the jump clean-up
+then deletes the branch that can no longer run. Copies are propagated within a
+basic block only; stores to local variables that are overwritten before being
+read are not removed. The compiler prints a summary line such as `Optimised IR:
+30 constant(s) folded, 48 constant(s) and 25 copy(ies) propagated, 11 strength
+reduction(s), 11 jump(s) cleaned up, 51 instruction(s) removed`.
 
-Verification: test 34 (expected output from gcc), all other tests, and about 190
-extra programs compiled with and without the optimiser print identical output.
+Verification: test 34 (expected output from gcc), all other tests (also run
+with `-O0`), and about 190 extra programs compiled with and without the
+optimiser print identical output, apart from a division by zero (undefined) and
+the byte count in spim's stack-overflow message.
 
 ---
 
@@ -894,7 +900,7 @@ the native compiler printed. Current result: **40 / 40 pass**. Other checks:
 
 | Feature | Test | Main implementation |
 |---|---|---|
-| IR optimisation | 34 | `optimize.cpp` `forward` / `merge` / `sweep` |
+| IR optimisation | 34 | `optimize.cpp` `jumps` / `merge` / `forward` (+ `label_constants`) / `sweep` |
 | Operators | 01 | `parser.y` precedence levels; `codegen.cpp` `gen_binary`/`gen_unary`; `mips.cpp` `emit_binop` |
 | if-else | 02 | `codegen.cpp` statement lowering |
 | for / while / do-while | 03 | loop lowering with the break/continue label stack |

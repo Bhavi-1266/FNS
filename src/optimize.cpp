@@ -11,6 +11,10 @@
 //   * strength reduction    t = i * 8            ->  t = i << 3
 //                           unsigned u / 4, u % 4 -> u >> 2, u & 3
 //                           x * 1, x * 0, x + 0, x / 1, x % 1  ->  x, 0, x, x, 0
+//   * jump clean-up         goto L1 ... L1: goto L2  ->  goto L2
+//                           goto L; L:            ->  L:
+//                           ifFalse c goto L1; goto L2; L1:  ->  if c goto L2
+//                           unreachable code and unused labels are removed
 // followed by removal of temporaries that are no longer read.
 //
 // The back end decides each operand's width, signedness and integer/float
@@ -18,17 +22,21 @@
 // keeps that type: a literal stands only for a 4-byte integer variable (and
 // not for an unsigned one in a comparison, where a literal compares as
 // signed), a copy source must have exactly the type of the copy.  Propagation is limited to
-// one basic block (a label forgets everything) and to locals, parameters and
+// one basic block for copies and, for constants, to what every path into a
+// label agrees on (a data-flow analysis), and to locals, parameters and
 // temporaries whose address is never taken, which no call or store through a
 // pointer can change.  Folding reproduces the back end's 32-bit arithmetic and
 // leaves division by zero, INT_MIN / -1 and out-of-range shifts to run time.
 // ===========================================================================
 #include "optimize.hpp"
 
+#include <cctype>
 #include <cstdint>
+#include <iterator>
 #include <map>
 #include <set>
 #include <sstream>
+#include <utility>
 
 namespace fns {
 namespace {
@@ -157,7 +165,9 @@ private:
                     const std::map<std::string, std::string> &val, bool param_ok);
     bool fold(std::vector<std::string> &w, const std::string &note, bool &drop);
     bool reduce(std::vector<std::string> &w, const std::string &note);
+    std::map<size_t, std::map<std::string, std::string>> label_constants() const;
     bool forward();
+    bool jumps();
     bool merge();
     bool sweep();
     std::map<std::string, int> count_uses() const;
@@ -199,13 +209,16 @@ bool FuncOpt::tracked(const std::string &n) const {
     return it != type_.end() && !addr_.count(n) && scalar(it->second);
 }
 
-// `param` operands are read by the following `call`: a replacement at the
-// `param` is valid only if nothing but other params comes in between.
+// `param` operands are read by the `call` that consumes them: a replacement at
+// the `param` is valid only if nothing but other params comes in between and
+// that call takes this argument (its count covers every param from here on).
 bool FuncOpt::params_until_call(size_t i) const {
+    size_t pending = 1;
     for (size_t j = i + 1; j < f_.code.size(); ++j) {
         std::vector<std::string> w = words(f_.code[j].text);
-        if (!w.empty() && w[0] == "param") continue;
-        return !w.empty() && (w[0] == "call" || (w.size() > 2 && w[1] == "=" && w[2] == "call"));
+        if (!w.empty() && w[0] == "param") { ++pending; continue; }
+        bool call = !w.empty() && (w[0] == "call" || (w.size() > 2 && w[1] == "=" && w[2] == "call"));
+        return call && is_lit(w.back()) && std::stoll(w.back()) >= (long long)pending;
     }
     return false;
 }
@@ -322,6 +335,137 @@ bool FuncOpt::reduce(std::vector<std::string> &w, const std::string &note) {
     return true;
 }
 
+std::string label_name(const Instr &in) { return in.text.substr(0, in.text.size() - 1); }
+
+bool is_jump(const std::vector<std::string> &w) {
+    return (w.size() == 2 && w[0] == "goto") ||
+           (w.size() == 4 && (w[0] == "if" || w[0] == "ifFalse") && w[2] == "goto");
+}
+
+// Constant propagation across basic blocks: the integer constants every path
+// into each label agrees on (forward data-flow analysis; the meet keeps the
+// names that have the same constant on all incoming edges).  Returns, for the
+// index of each reachable label, the constants known when control arrives.
+// Comment: >30 lines because it splits the function into blocks, links their
+// successors and iterates the analysis to a fixed point.
+std::map<size_t, std::map<std::string, std::string>> FuncOpt::label_constants() const {
+    typedef std::map<std::string, std::string> Facts;
+    const std::vector<Instr> &c = f_.code;
+    std::vector<size_t> start;                         // first instruction of each block
+    std::map<std::string, size_t> block_of;            // label -> block
+    for (size_t i = 0; i < c.size(); ++i) {
+        std::vector<std::string> prev = i ? words(c[i - 1].text) : std::vector<std::string>();
+        bool leader = i == 0 || is_label(c[i]) || is_jump(prev) || (!prev.empty() && prev[0] == "return");
+        if (leader) start.push_back(i);
+        if (is_label(c[i])) block_of[label_name(c[i])] = start.size() - 1;
+    }
+    size_t nb = start.size();
+    std::vector<std::vector<size_t>> succ(nb);
+    for (size_t b = 0; b < nb; ++b) {
+        size_t last = (b + 1 < nb ? start[b + 1] : c.size()) - 1;
+        std::vector<std::string> w = words(c[last].text);
+        if (is_jump(w) && block_of.count(w.back())) succ[b].push_back(block_of[w.back()]);
+        bool falls = !(w.size() == 2 && w[0] == "goto") && !(!w.empty() && w[0] == "return");
+        if (falls && b + 1 < nb) succ[b].push_back(b + 1);
+    }
+    std::vector<bool> seen(nb, false);
+    std::vector<Facts> in(nb);
+    if (nb) seen[0] = true;                            // function entry: nothing known
+    for (bool changed = true; changed;) {
+        changed = false;
+        for (size_t b = 0; b < nb; ++b) {
+            if (!seen[b]) continue;
+            Facts f = in[b];                           // transfer through the block
+            size_t end = b + 1 < nb ? start[b + 1] : c.size();
+            for (size_t i = start[b]; i < end; ++i) {
+                std::vector<std::string> w = words(c[i].text);
+                if (!is_def(w)) continue;
+                std::string v;
+                if (w.size() == 3 && is_lit(w[2]) && fits32(w[2])) v = w[2];
+                else if (w.size() == 3 && f.count(w[2]) && type_of(w[2]) == type_of(w[0])) v = f[w[2]];
+                f.erase(w[0]);
+                if (!v.empty() && tracked(w[0]) && word_int(type_of(w[0]))) f[w[0]] = v;
+            }
+            for (size_t s : succ[b]) {
+                if (s == 0) continue;                  // the entry block keeps "nothing known"
+                Facts m;
+                if (!seen[s]) m = f;
+                else for (const auto &e : in[s]) {
+                    auto x = f.find(e.first);
+                    if (x != f.end() && x->second == e.second) m.insert(e);
+                }
+                if (!seen[s] || m != in[s]) { seen[s] = true; in[s] = m; changed = true; }
+            }
+        }
+    }
+    std::map<size_t, Facts> known;
+    for (size_t b = 0; b < nb; ++b)
+        if (seen[b] && is_label(c[start[b]])) known[start[b]] = in[b];
+    return known;
+}
+
+// Jump clean-up: a jump to a `goto` goes straight to its final target; a jump
+// to the very next instruction is deleted; `ifFalse c goto L1; goto L2; L1:`
+// becomes `if c goto L2`; code after `goto`/`return` that no label reaches is
+// deleted, and so are labels nothing jumps to.
+// Comment: >30 lines because each of the four rewrites is a separate scan.
+bool FuncOpt::jumps() {
+    std::vector<Instr> &c = f_.code;
+    bool changed = false;
+    std::map<std::string, size_t> at;
+    for (size_t i = 0; i < c.size(); ++i)
+        if (is_label(c[i])) at[label_name(c[i])] = i;
+    for (Instr &in : c) {                              // follow chains of gotos
+        std::vector<std::string> w = words(in.text);
+        if (!is_jump(w)) continue;
+        std::string l = w.back();
+        std::set<std::string> visited;
+        while (visited.insert(l).second && at.count(l)) {
+            size_t j = at[l];
+            while (j < c.size() && is_label(c[j])) ++j;
+            std::vector<std::string> n = j < c.size() ? words(c[j].text) : std::vector<std::string>();
+            if (n.size() != 2 || n[0] != "goto") break;
+            l = n[1];
+        }
+        if (l != w.back()) { w.back() = l; in.text = join(w); ++st_.jumps; changed = true; }
+    }
+    std::vector<Instr> out;
+    bool dead = false;
+    for (size_t i = 0; i < c.size(); ++i) {
+        if (is_label(c[i])) { dead = false; out.push_back(c[i]); continue; }
+        if (dead) { ++st_.removed; changed = true; continue; }
+        std::vector<std::string> w = words(c[i].text);
+        if (is_jump(w)) {
+            bool to_next = false;                      // the target label follows directly
+            for (size_t j = i + 1; j < c.size() && is_label(c[j]); ++j)
+                if (label_name(c[j]) == w.back()) to_next = true;
+            if (to_next) { ++st_.jumps; changed = true; continue; }
+            std::vector<std::string> n = i + 2 < c.size() ? words(c[i + 1].text) : std::vector<std::string>();
+            if (w[0] != "goto" && n.size() == 2 && n[0] == "goto" && is_label(c[i + 2]) &&
+                label_name(c[i + 2]) == w.back()) {    // conditional jump over a goto
+                out.push_back({(w[0] == "if" ? "ifFalse " : "if ") + w[1] + " goto " + n[1], c[i].note});
+                ++i;
+                ++st_.jumps;
+                changed = true;
+                continue;
+            }
+        }
+        out.push_back(c[i]);
+        dead = !w.empty() && (w[0] == "goto" || w[0] == "return");
+    }
+    std::set<std::string> used;
+    for (const Instr &in : out) {
+        std::vector<std::string> w = words(in.text);
+        if (is_jump(w)) used.insert(w.back());
+    }
+    c.clear();
+    for (const Instr &in : out) {
+        if (is_label(in) && !used.count(label_name(in))) { ++st_.removed; changed = true; continue; }
+        c.push_back(in);
+    }
+    return changed;
+}
+
 // One pass over the code: in each basic block, replace uses by known constants
 // and copy sources, then fold and strength-reduce the result.
 // Comment: >30 lines because it keeps the per-block table of known values and
@@ -329,10 +473,17 @@ bool FuncOpt::reduce(std::vector<std::string> &w, const std::string &note) {
 bool FuncOpt::forward() {
     bool changed = false;
     std::map<std::string, std::string> val;   // name -> literal or name it equals
+    std::map<size_t, std::map<std::string, std::string>> known = label_constants();
     std::vector<Instr> out;
     for (size_t i = 0; i < f_.code.size(); ++i) {
         Instr in = f_.code[i];
-        if (is_label(in)) { val.clear(); out.push_back(in); continue; }
+        if (is_label(in)) {                    // a new block starts with what every path agrees on
+            auto k = known.find(i);
+            if (k != known.end()) val = k->second;
+            else val.clear();
+            out.push_back(in);
+            continue;
+        }
         std::vector<std::string> w = words(in.text);
         if (w.empty()) { out.push_back(in); continue; }
         bool drop = false;
@@ -416,7 +567,8 @@ bool FuncOpt::sweep() {
 void FuncOpt::run() {
     scan();
     for (int round = 0; round < 10; ++round) {
-        bool changed = merge();
+        bool changed = jumps();
+        changed |= merge();
         changed |= forward();
         changed |= sweep();
         if (!changed) break;

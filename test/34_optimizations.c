@@ -3,7 +3,8 @@
 // signed division/remainder of negative numbers (must stay a real division),
 // unsigned division/remainder with the top bit set, 32-bit wrap-around,
 // shifts of negative numbers, calls whose result is multiplied by 0, unsigned
-// comparisons against large literals, and values that only meet after a ?:.
+// comparisons against large literals, values that only meet after a ?:,
+// constants that reach a label on all paths or only on some, and jump chains.
 #include <stdio.h>
 
 int calls = 0;
@@ -76,5 +77,27 @@ int main(void) {
     for (int i = 0; i < 6; i++) arr[i] = i * i;
     int idx = 5;
     printf("arr: %d %d\n", arr[idx], arr[idx - 2]);                           // 25 9
+
+    // ---- constants across blocks: kept only where every path agrees ----
+    int same, diff2;
+    if (calls > 0) { same = 10; diff2 = 1; } else { same = 10; diff2 = 2; }
+    printf("join: %d %d\n", same * 2, diff2);                                 // 20 1
+    int s = 1;
+    for (int k = 0; k < 4; k++) s = s * 3;            // s changes in the loop: not a constant
+    printf("loop: %d\n", s);                                                 // 81
+
+    // ---- jump clean-up: break/continue chains, goto chains, dead code ----
+    int hits = 0;
+    for (int k = 0; k < 10; k++) {
+        if (k % 2) continue;
+        if (k > 6) break;
+        hits++;
+    }
+    goto first;
+    printf("skipped\n");
+first:
+    goto second;
+second:
+    if (hits == 4) printf("jumps: hits=%d\n", hits);                        // 4
     return 0;
 }

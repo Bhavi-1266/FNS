@@ -119,9 +119,10 @@ until nothing changes:
 | Rewrite | Example |
 |---|---|
 | constant folding | `t = 3 * 4` → `t = 12`; `if 0 goto L` → removed; `ifFalse 0 goto L` → `goto L` |
-| constant propagation (per basic block) | `n = 4; t = n * k` → `t = 4 * k` |
-| copy propagation | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t = e; v = t` → `v = e` |
+| constant propagation (across basic blocks: a constant all paths into a label agree on) | `n = 4; t = n * k` → `t = 4 * k` |
+| copy propagation (per basic block) | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t = e; v = t` → `v = e` |
 | strength reduction | `x * 2^k` → `x << k`; unsigned `x / 2^k` → `x >> k`, `x % 2^k` → `x & (2^k - 1)`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0` → `0` |
+| jump clean-up | `goto L1 … L1: goto L2` → `goto L2`; `goto L; L:` → `L:`; `ifFalse c goto L1; goto L2; L1:` → `if c goto L2`; unreachable code and unused labels removed |
 | dead temporaries | a temporary that is no longer read loses its definition (calls stay) |
 
 Only names whose address is never taken (locals, parameters, temporaries) are

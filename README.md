@@ -149,7 +149,7 @@ native C/C++ compiler printed.
 | `31_object_lifetime.cpp` | copy constructors, by-value objects, default arguments, global and static-local objects (first-use initialisation, destruction order, `exit()`), destructors on `goto` |
 | `32_modern_cpp.cpp` | range-based `for` over arrays, `enum class` |
 | `33_array_pointer_arith.c` | multi-level pointers into multi-dimensional arrays `*(*(a+i)+j)`, pointer-to-array variables `int (*p)[4]`, casts to typedef/enum names, constant-expression array bounds |
-| `34_optimizations.c` | IR optimisations keep every result: folding with 32-bit wrap-around, signed `/` `%` of negative numbers (not turned into shifts), unsigned `/` `%` with the top bit set, `f() * 0` still calls `f`, unsigned comparisons with large literals, copies of a `?:` result |
+| `34_optimizations.c` | IR optimisations keep every result: folding with 32-bit wrap-around, signed `/` `%` of negative numbers (not turned into shifts), unsigned `/` `%` with the top bit set, `f() * 0` still calls `f`, unsigned comparisons with large literals, copies of a `?:` result, constants that reach a label on all paths or only some, a variable changed in a loop, `break`/`continue`/`goto` chains |
 | `errors/e01_syntax.c` … `e06_switch_scope.cpp` | syntax errors, undeclared names / wrong argument counts / undefined functions, type errors, misplaced break/continue/goto/duplicate case/const assignment, access-control violations (also through private/protected bases), a case label that jumps past an initialisation |
 
 Other checks: `tools/gate.sh` (grammar has 0 conflicts; the earlier-phase IR test
@@ -193,23 +193,23 @@ lines has a comment).
 ## 5. Three-address code (IR)
 
 Every program is lowered to a textual three-address code before code generation
-(`--emit-ir`, `--print-ir`, and `test/output/*.ir`). Example (from `test/09`,
-printed with `-O0`, i.e. before optimisation):
+(`--emit-ir`, `--print-ir`, and `test/output/*.ir`). Example (from `test/09`;
+the optimiser leaves this function unchanged):
 
 ```
 function gcd(int a, int b) : int
-    t1 = b == 0                          ; int
-    ifFalse t1 goto L1
-    t2 = a                               ; int
-    goto L2
-L1:
+    t2 = b == 0                          ; int
+    ifFalse t2 goto L5
+    t1 = a                               ; int
+    goto L6
+L5:
     t3 = a % b                           ; int
     param b
     param t3
     t4 = call gcd, 2                     ; int
-    t2 = t4                              ; int
-L2:
-    return t2                            ; int
+    t1 = t4                              ; int
+L6:
+    return t1                            ; int
 endfunction
 ```
 
@@ -231,9 +231,10 @@ what changed. The steps repeat until nothing changes:
 | Optimisation | Example (before → after) | Rule that keeps it correct |
 |---|---|---|
 | Constant folding | `t = 3 * 4` → `t = 12`; `ifFalse 1 goto L` → removed, `ifFalse 0 goto L` → `goto L` | 32-bit wrap-around exactly as the MIPS instructions compute it; division by zero, `INT_MIN / -1` and shifts outside 0..31 are left for run time; only `int`/`long`/`unsigned` results are folded (no `float`/`double`) |
-| Constant propagation | `size = 4; t1 = size * 2` → `t1 = 4 * 2` (then folded to `8`) | inside one basic block (a label forgets everything); only locals, parameters and temporaries whose address is never taken (no call or `*p = …` can change them); a literal replaces only a 4-byte integer variable, and never an `unsigned` operand of a comparison (a literal compares as signed) |
-| Copy propagation | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t2 = i * k; r = t2` → `r = i * k` | the copy and its source must have exactly the same type; the temporary of `t = e; v = t` must be assigned and read exactly once; a `param` is only rewritten when nothing but other `param`s stands between it and its `call` (arguments are read at the call) |
+| Constant propagation | `size = 4; t1 = size * 2` → `t1 = 4 * 2` (then folded to `8`); `scale = 4` before a loop → `i * 4` inside it | across basic blocks by a data-flow analysis: at a label a variable is a constant only if it has the same constant on every path that reaches the label (a variable changed inside a loop is not); only locals, parameters and temporaries whose address is never taken (no call or `*p = …` can change them); a literal replaces only a 4-byte integer variable, and never an `unsigned` operand of a comparison (a literal compares as signed) |
+| Copy propagation | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t2 = i * k; r = t2` → `r = i * k` | within one basic block; the copy and its source must have exactly the same type; the temporary of `t = e; v = t` must be assigned and read exactly once; a `param` is only rewritten when nothing but other `param`s stands between it and the `call` that takes it (arguments are read at the call) |
 | Strength reduction | `i * 8` → `i << 3`; `8 * i` → `i << 3`; unsigned `u / 8` → `u >> 3`, `u % 8` → `u & 7`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0`, `x % 1` → `0` | signed `/` and `%` by a power of two stay real divisions (they round toward zero, a shift rounds down) |
+| Jump clean-up | `goto L1 … L1: goto L2` → `goto L2`; `goto L; L:` → `L:`; `ifFalse c goto L1; goto L2; L1:` → `if c goto L2`; code after `goto`/`return` that no label reaches, and labels nothing jumps to, are deleted | only jumps and unreachable code change; removing an unused label also lets the next block share the facts of the previous one |
 | Dead temporaries | temporaries no longer read after the steps above are deleted, as are self-copies `x = x` | a call is never deleted, even if its result is unused |
 
 Example: `int size = 4; int k = size * 2; int r = i * k; unsigned int m = u % 8;`
@@ -251,8 +252,11 @@ Example: `int size = 4; int k = size * 2; int r = i * k; unsigned int m = u % 8;
 ```
 
 Over the 34 test programs plus about 190 extra programs, the optimised and
-unoptimised compilers print identical output, while the IR shrinks by about 6%
-and the generated assembly (runtime library included) by about 8%.
+unoptimised compilers print identical output (the only differences seen were a
+division by zero, which is undefined, and the byte count in spim's message for a
+program that overflows the stack); the IR shrinks by about 7% and the generated
+assembly (runtime library included) by about 9%. Optimisation is on by default;
+the runtime library embedded in `fnsc` is always the optimised one.
 
 ## 6. Source layout
 
@@ -263,7 +267,7 @@ and the generated assembly (runtime library included) by about 8%.
 | `src/parser.y` | bison grammar (0 conflicts) building the AST (`src/ast.hpp`) |
 | `src/codegen.{hpp,cpp}` | semantic analysis and IR generation: scopes, types, class layout, vtables, overloading, constructors/destructors, lambdas |
 | `src/ir.{hpp,cpp}` | IR data structures and printer |
-| `src/optimize.{hpp,cpp}` | IR optimiser: constant folding, constant/copy propagation, strength reduction |
+| `src/optimize.{hpp,cpp}` | IR optimiser: constant folding, constant/copy propagation, strength reduction, jump clean-up |
 | `src/mips.{hpp,cpp}` | IR → MIPS32 back end, linking of the used runtime functions |
 | `src/lib/libfns.c` | the C runtime library, written in FNS and compiled by fnsc |
 | `src/runtime.s` | the only hand-written assembly: spim system-call stubs |

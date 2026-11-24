@@ -9,3 +9,6 @@ noisy(6)
 zero=0 calls=1
 ucmp: 1 1
 arr: 25 9
+join: 20 1
+loop: 81
+jumps: hits=4

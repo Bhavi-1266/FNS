@@ -63,6 +63,7 @@ fnsc <source.c|source.cpp> [options]
   -o FILE           write the assembly to FILE            (default: <stem>.s)
   --emit-ir [FILE]  also write the three-address code IR   (default: <stem>.ir)
   --print-ir        print the three-address code on standard output
+  -O0               do not optimise the IR (default: optimise)
   -E                print the preprocessed source and stop
   --runtime         compile the runtime library (used by the makefile)
 ```
@@ -74,6 +75,7 @@ Examples:
 spim -file fact.s                                      # run
 ./fnsc test/16_classes.cpp --print-ir                  # show the 3AC IR on the terminal
 ./fnsc test/16_classes.cpp --emit-ir classes.ir        # save the IR in a file
+./fnsc test/34_optimizations.c -O0 --print-ir          # the IR before optimisation
 ./fnsc test/20_command_line.c -o args.s && spim -file args.s add 2 3
 make run FILE=test/03_loops.c                          # prints the IR and assembly, then runs it
 make run RUN=test/20_command_line.c ARGS="add 2 3"     # RUN= works too; ARGS = program arguments
@@ -147,6 +149,7 @@ native C/C++ compiler printed.
 | `31_object_lifetime.cpp` | copy constructors, by-value objects, default arguments, global and static-local objects (first-use initialisation, destruction order, `exit()`), destructors on `goto` |
 | `32_modern_cpp.cpp` | range-based `for` over arrays, `enum class` |
 | `33_array_pointer_arith.c` | multi-level pointers into multi-dimensional arrays `*(*(a+i)+j)`, pointer-to-array variables `int (*p)[4]`, casts to typedef/enum names, constant-expression array bounds |
+| `34_optimizations.c` | IR optimisations keep every result: folding with 32-bit wrap-around, signed `/` `%` of negative numbers (not turned into shifts), unsigned `/` `%` with the top bit set, `f() * 0` still calls `f`, unsigned comparisons with large literals, copies of a `?:` result |
 | `errors/e01_syntax.c` … `e06_switch_scope.cpp` | syntax errors, undeclared names / wrong argument counts / undefined functions, type errors, misplaced break/continue/goto/duplicate case/const assignment, access-control violations (also through private/protected bases), a case label that jumps past an initialisation |
 
 Other checks: `tools/gate.sh` (grammar has 0 conflicts; the earlier-phase IR test
@@ -190,7 +193,8 @@ lines has a comment).
 ## 5. Three-address code (IR)
 
 Every program is lowered to a textual three-address code before code generation
-(`--emit-ir`, `--print-ir`, and `test/output/*.ir`). Example (from `test/09`):
+(`--emit-ir`, `--print-ir`, and `test/output/*.ir`). Example (from `test/09`,
+printed with `-O0`, i.e. before optimisation):
 
 ```
 function gcd(int a, int b) : int
@@ -217,6 +221,39 @@ Sections: `.data` (strings, globals, vtables), `.extern` (library functions
 used), `.text`. Full format and the lowering of each construct:
 [`docs/IR_LANGUAGE_REFERENCE.md`](docs/IR_LANGUAGE_REFERENCE.md).
 
+### 5.1 Optimisations
+
+`src/optimize.cpp` optimises the IR of every function before MIPS generation
+(`-O0` turns it off). The printed IR (`--print-ir`, `--emit-ir`, `make test`,
+`make run`) is the optimised one, and the compiler prints a one-line summary of
+what changed. The steps repeat until nothing changes:
+
+| Optimisation | Example (before → after) | Rule that keeps it correct |
+|---|---|---|
+| Constant folding | `t = 3 * 4` → `t = 12`; `ifFalse 1 goto L` → removed, `ifFalse 0 goto L` → `goto L` | 32-bit wrap-around exactly as the MIPS instructions compute it; division by zero, `INT_MIN / -1` and shifts outside 0..31 are left for run time; only `int`/`long`/`unsigned` results are folded (no `float`/`double`) |
+| Constant propagation | `size = 4; t1 = size * 2` → `t1 = 4 * 2` (then folded to `8`) | inside one basic block (a label forgets everything); only locals, parameters and temporaries whose address is never taken (no call or `*p = …` can change them); a literal replaces only a 4-byte integer variable, and never an `unsigned` operand of a comparison (a literal compares as signed) |
+| Copy propagation | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t2 = i * k; r = t2` → `r = i * k` | the copy and its source must have exactly the same type; the temporary of `t = e; v = t` must be assigned and read exactly once; a `param` is only rewritten when nothing but other `param`s stands between it and its `call` (arguments are read at the call) |
+| Strength reduction | `i * 8` → `i << 3`; `8 * i` → `i << 3`; unsigned `u / 8` → `u >> 3`, `u % 8` → `u & 7`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0`, `x % 1` → `0` | signed `/` and `%` by a power of two stay real divisions (they round toward zero, a shift rounds down) |
+| Dead temporaries | temporaries no longer read after the steps above are deleted, as are self-copies `x = x` | a call is never deleted, even if its result is unused |
+
+Example: `int size = 4; int k = size * 2; int r = i * k; unsigned int m = u % 8;`
+
+```
+-O0                                  optimised
+    size = 4          ; int              size = 4          ; int
+    t1 = size * 2     ; int              k = 8             ; int
+    k = t1            ; int              r = i << 3        ; int
+    t2 = i * k        ; int              m = u & 7         ; unsigned int
+    r = t2            ; int
+    t3 = (unsigned int) 8                (t1 folded to 8 and propagated into i * k,
+    t4 = u % t3       ; unsigned int      * 8 and % 8 reduced, copies merged)
+    m = t4            ; unsigned int
+```
+
+Over the 34 test programs plus about 190 extra programs, the optimised and
+unoptimised compilers print identical output, while the IR shrinks by about 6%
+and the generated assembly (runtime library included) by about 8%.
+
 ## 6. Source layout
 
 | Path | Contents |
@@ -226,6 +263,7 @@ used), `.text`. Full format and the lowering of each construct:
 | `src/parser.y` | bison grammar (0 conflicts) building the AST (`src/ast.hpp`) |
 | `src/codegen.{hpp,cpp}` | semantic analysis and IR generation: scopes, types, class layout, vtables, overloading, constructors/destructors, lambdas |
 | `src/ir.{hpp,cpp}` | IR data structures and printer |
+| `src/optimize.{hpp,cpp}` | IR optimiser: constant folding, constant/copy propagation, strength reduction |
 | `src/mips.{hpp,cpp}` | IR → MIPS32 back end, linking of the used runtime functions |
 | `src/lib/libfns.c` | the C runtime library, written in FNS and compiled by fnsc |
 | `src/runtime.s` | the only hand-written assembly: spim system-call stubs |

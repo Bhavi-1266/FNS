@@ -11,6 +11,7 @@
 #include "decl_table.hpp"
 #include "ir.hpp"
 #include "mips.hpp"
+#include "optimize.hpp"
 #include "preprocess.hpp"
 #include "symbol_table.hpp"
 
@@ -35,6 +36,7 @@ static void usage(const char *prog) {
               << "  -o FILE           write the assembly to FILE (default: <stem>.s)\n"
               << "  --emit-ir [FILE]  also write the three-address code (default: <stem>.ir)\n"
               << "  --print-ir        print the three-address code on standard output\n"
+              << "  -O0               do not optimise the three-address code (default: optimise)\n"
               << "  -E                print the preprocessed source and stop\n"
               << "  --runtime         compile the runtime library (used by the makefile)\n"
               << "run the result with:  spim -file out.s [program arguments]\n";
@@ -42,7 +44,7 @@ static void usage(const char *prog) {
 
 struct Options {
     std::string input, asm_out, ir_out;
-    bool want_ir = false, print_ir = false, only_pp = false, runtime = false;
+    bool want_ir = false, print_ir = false, only_pp = false, runtime = false, optimize = true;
 };
 
 static int parse_options(int argc, char **argv, Options &o) {
@@ -56,6 +58,8 @@ static int parse_options(int argc, char **argv, Options &o) {
                 o.ir_out = argv[++i];
         } else if (a == "--print-ir" || a == "-ir") o.print_ir = true;
         else if (a == "-E") o.only_pp = true;
+        else if (a == "-O0") o.optimize = false;
+        else if (a == "-O" || a == "-O1") o.optimize = true;
         else if (a == "--runtime") o.runtime = true;
         else if (a == "-h" || a == "--help") { usage(argv[0]); return 0; }
         else if (a[0] != '-' && o.input.empty()) o.input = a;
@@ -127,6 +131,13 @@ int main(int argc, char **argv) {
 
     // a construct the front end could not lower is an error, not a note
     for (const auto &n : mod.notes) mod.errors.push_back(n);
+
+    if (mod.errors.empty() && opt.optimize) {
+        fns::OptStats st = fns::optimize(mod);
+        std::cout << "Optimised IR: " << st.folded << " constant(s) folded, " << st.constants
+                  << " constant(s) and " << st.copies << " copy(ies) propagated, " << st.reduced
+                  << " strength reduction(s), " << st.removed << " instruction(s) removed\n";
+    }
 
     if (opt.want_ir) {
         std::ofstream irf(opt.ir_out);

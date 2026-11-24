@@ -110,6 +110,24 @@ sit at offset 0.
 | Range `for` | hidden index loop `range_i` over the array address `range_base` |
 | `enum class` | scoped enumerators are integer constants, like plain enumerators |
 
+## Optimisation
+
+The IR that `--print-ir` / `--emit-ir` show has been optimised by
+`src/optimize.cpp`; `-O0` shows the direct lowering described above. Per function,
+until nothing changes:
+
+| Rewrite | Example |
+|---|---|
+| constant folding | `t = 3 * 4` → `t = 12`; `if 0 goto L` → removed; `ifFalse 0 goto L` → `goto L` |
+| constant propagation (per basic block) | `n = 4; t = n * k` → `t = 4 * k` |
+| copy propagation | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t = e; v = t` → `v = e` |
+| strength reduction | `x * 2^k` → `x << k`; unsigned `x / 2^k` → `x >> k`, `x % 2^k` → `x & (2^k - 1)`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0` → `0` |
+| dead temporaries | a temporary that is no longer read loses its definition (calls stay) |
+
+Only names whose address is never taken (locals, parameters, temporaries) are
+propagated, only between operands of identical type, and folding uses the same
+32-bit arithmetic as the generated MIPS code. Signed division keeps `div`.
+
 ## IR naming
 
 - Locals keep their source name; a shadowing declaration in an inner block gets a numeric

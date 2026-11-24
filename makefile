@@ -23,10 +23,10 @@ LIB_ASM := src/lib/libfns.s
 LIB_INC := $(BUILD)/libfns_asm.inc
 
 HDRS := src/ast.hpp src/ir.hpp src/codegen.hpp src/decl_table.hpp src/symbol_table.hpp \
-        src/mips.hpp src/preprocess.hpp
+        src/mips.hpp src/preprocess.hpp src/optimize.hpp
 COMMON_OBJS := $(BUILD)/parser.tab.o $(BUILD)/lex.yy.o $(BUILD)/decl_table.o \
         $(BUILD)/symbol_table.o $(BUILD)/ir.o \
-        $(BUILD)/codegen.o $(BUILD)/preprocess.o $(BUILD)/main.o
+        $(BUILD)/codegen.o $(BUILD)/optimize.o $(BUILD)/preprocess.o $(BUILD)/main.o
 
 .PHONY: all help test check run clean
 

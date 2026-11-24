@@ -1,0 +1,11 @@
+fold: 14 3 -4 -2 1 2147483648 0
+prop: sum=40 half=1.50
+copy: p=41 q=41 r=42 m=9 mcopy=9 x=100
+signed div: -1 1 -2 -5
+signed mod: -3 3 0
+mul: -24 -24 -2147483648 -9
+unsigned: 268435456 5 0 0
+noisy(6)
+zero=0 calls=1
+ucmp: 1 1
+arr: 25 9

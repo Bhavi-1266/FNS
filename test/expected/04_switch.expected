@@ -14,3 +14,6 @@ h:consonant i:vowel  :space 2:digit u:vowel
 outer0 inner0
 i=2 count=10
 done
+case 1 sets n=10
+case 2 sets n=21
+case 2 sets n=22

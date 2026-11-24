@@ -1,5 +1,6 @@
 /* Feature: switch: fallthrough, default anywhere, nested switch, char and enum labels,
-   negative and constant-expression labels, break inside switch inside loop. */
+   negative and constant-expression labels, break inside switch inside loop,
+   a variable declared in one case and used in a later one (one scope per switch). */
 #include <stdio.h>
 
 enum Op { ADD = 1, SUB, MUL = 10, DIV };
@@ -75,5 +76,18 @@ int main() {
     /* switch with no matching case and no default */
     switch (42) { case 1: printf("never\n"); }
     printf("done\n");
+
+    /* the switch body is one scope: `n` is declared under case 1 and used under case 2 */
+    for (int k = 1; k <= 2; k++) {
+        switch (k) {
+        case 1:;
+            int n;
+            n = 10;
+            printf("case 1 sets n=%d\n", n);
+        case 2:
+            n = 20 + k;
+            printf("case 2 sets n=%d\n", n);
+        }
+    }
     return 0;
 }

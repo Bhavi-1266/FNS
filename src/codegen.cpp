@@ -2186,13 +2186,27 @@ void CodeGen::gen_switch(Node *n) {
     }
     emit("goto " + (ldefault.empty() ? lend : ldefault));
     loops_.push_back({lend, ""});
-    loop_depth_.push_back(scopes_.size());
+    push_scope();                              // the whole switch body is one scope
+    loop_depth_.push_back(scopes_.size() - 1); // break destroys the objects built so far
+    std::string crossed;                       // C++: a later case may not skip an initialisation
     for (size_t i = 1; i < n->kids.size(); ++i) {
+        if (!crossed.empty() && cplusplus_)
+            error(n->kids[i]->line, "jump to case label crosses initialization of '" + crossed + "'");
         emit_label(labels[i - 1]);
-        gen_block(n->kids[i]->kids[1], true);
+        gen_block(n->kids[i]->kids[1], false);
+        for (Node *st : n->kids[i]->kids[1]->kids) {
+            std::vector<Node *> decls = st->kind == NK::DeclList ? st->kids : std::vector<Node *>{st};
+            for (Node *d : decls) {
+                if (d->kind != NK::VarDecl || (d->flags & F_STATIC) || !crossed.empty()) continue;
+                ClassInfo *dc = class_of(resolve(*d->type));
+                if (!d->kids.empty() || (dc && dc->ctor && d->type->ptr == 0)) crossed = d->str;
+            }
+        }
     }
     loops_.pop_back();
     loop_depth_.pop_back();
+    emit_scope_dtors(scopes_.size() - 1);      // falling off the end of the last case
+    pop_scope();
     emit_label(lend);
 }
 

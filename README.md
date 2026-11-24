@@ -147,7 +147,7 @@ native C/C++ compiler printed.
 | `31_object_lifetime.cpp` | copy constructors, by-value objects, default arguments, global and static-local objects and their destruction order |
 | `32_modern_cpp.cpp` | range-based `for` over arrays, `enum class` |
 | `33_array_pointer_arith.c` | multi-level pointers into multi-dimensional arrays `*(*(a+i)+j)`, casts to typedef/enum names, constant-expression array bounds |
-| `errors/e01_syntax.c` … `e05_access.cpp` | syntax errors, undeclared names / wrong argument counts / undefined functions, type errors, misplaced break/continue/goto/duplicate case/const assignment, access-control violations |
+| `errors/e01_syntax.c` … `e06_switch_scope.cpp` | syntax errors, undeclared names / wrong argument counts / undefined functions, type errors, misplaced break/continue/goto/duplicate case/const assignment, access-control violations (also through private/protected bases), a case label that jumps past an initialisation |
 
 Other checks: `tools/gate.sh` (grammar has 0 conflicts; the earlier-phase IR test
 programs in `test/ir_phase/` still compile; IR structure checks; 67 expected
@@ -329,7 +329,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 |---|---|---|
 | **Evaluation order** | **Strictly left to right**: operands, function arguments and initializers. E.g. `printf("%d %d", f(), f())` calls the first `f()` first. gcc evaluates arguments right to left on x86-64, so a program whose output depends on this order prints differently. | unspecified |
 | Struct values | assignment, pass and return by value, and members of a returned struct (`f().x`, `f().a[i]`) | same |
-| `switch` | compiled as a comparison chain; labels must be integer constant expressions | jump table |
+| `switch` | compiled as a comparison chain; labels must be integer constant expressions. The body is one scope (a variable declared under one case can be used under a later one); in C++ a case label that jumps past an initialised declaration is an error, as in g++. The body must be a `{ }` block that starts with a `case`/`default` label (no statements before the first label, no unbraced `switch (x) case 1: …`). | jump table; any statement as body |
 | `goto` out of a block | does not run destructors of objects in the blocks it leaves | runs them |
 | Comma, `?:`, `&&`, `\|\|` | as in C | |
 

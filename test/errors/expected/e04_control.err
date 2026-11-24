@@ -2,7 +2,7 @@ Errors:
   line 6: break outside loop
   line 7: continue outside loop
   line 10: redeclaration of 'x'
-  line 14: duplicate case value 1
+  line 13: duplicate case value 1
   line 16: assignment to const object
   line 8: goto to undefined label 'nowhere'
 No assembly generated (6 error(s)).

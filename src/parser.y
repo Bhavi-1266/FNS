@@ -840,8 +840,9 @@ case_list_opt
     ;
 
 case_item
-    : CASE_KW expr COLON stmt_list_opt     { $$ = mk2(NK::Case, $2, $4); }
-    | DEFAULT_KW COLON stmt_list_opt       { $$ = mk2(NK::Case, mk(NK::Empty), $3); $$->flags |= fns::F_DEFAULT; }
+    : CASE_KW expr COLON stmt_list_opt     { $$ = mk2(NK::Case, $2, $4); $$->line = $2->line; }
+    | DEFAULT_KW COLON { $<num>$ = yylineno; } stmt_list_opt
+        { $$ = mk2(NK::Case, mk(NK::Empty), $4); $$->flags |= fns::F_DEFAULT; $$->line = $<num>3; }
     ;
 
 /* ---------- expressions (precedence climbing, lowest to highest) ---------- */

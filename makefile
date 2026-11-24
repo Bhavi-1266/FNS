@@ -13,6 +13,7 @@ EXE := fnsc
 SIM ?= spim
 TEST_LOG := test/output/test_results.txt
 RUN_FILE := $(or $(FILE),$(RUN))
+TEST_IR_FLAG := $(if $(filter ir,$(MAKECMDGOALS)),--show-ir,)
 BUILD := build
 BISON_CPP := $(BUILD)/parser.tab.cc
 BISON_HDR := $(BUILD)/parser.tab.hpp
@@ -28,16 +29,16 @@ COMMON_OBJS := $(BUILD)/parser.tab.o $(BUILD)/lex.yy.o $(BUILD)/decl_table.o \
         $(BUILD)/symbol_table.o $(BUILD)/ir.o \
         $(BUILD)/codegen.o $(BUILD)/optimize.o $(BUILD)/preprocess.o $(BUILD)/main.o
 
-.PHONY: all help test check run clean
+.PHONY: all help test ir check run clean
 
 all: $(EXE)
 
 help:
 	@echo "FNS (Friendly Neighbourhood Spiderman) compiler: source -> MIPS32 assembly"
 	@echo "  make              Build ./$(EXE)"
-	@echo "  make test         Build and run every test on spim; PASS/FAIL on the terminal,"
-	@echo "                    full output (each test's 3AC IR, program output, results)"
-	@echo "                    saved in $(TEST_LOG)"
+	@echo "  make test         Run every test; show PASS/FAIL and save each IR in test/output/"
+	@echo "  make test ir      Also print each test's IR on the terminal"
+	@echo "                    Full output is saved in $(TEST_LOG)"
 	@echo "  make check        Same tests, PASS/FAIL only, nothing extra saved"
 	@echo "  make run FILE=x   Compile x, print its 3AC IR and MIPS assembly, run it on spim"
 	@echo "                    (RUN=x works too; program arguments: ARGS=\"a b\")"
@@ -90,11 +91,13 @@ $(BUILD)/mips.o: src/mips.cpp $(HDRS) $(RUNTIME_INC) $(LIB_INC)
 $(EXE): $(COMMON_OBJS) $(BUILD)/mips.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-# `make test` runs every test; the terminal shows the PASS/FAIL lines and the
-# whole output (each test's 3AC IR, its program output and the results) is
-# saved in $(TEST_LOG). The IR of each test is also kept in test/output/NN_name.ir.
+# `make test` always saves each testcase's IR in test/output/*.ir. Add the
+# separate `ir` goal (`make test ir`) to also display IR in the terminal.
 test: $(EXE)
-	bash run.sh ./$(EXE) --show-ir --log $(TEST_LOG)
+	bash run.sh ./$(EXE) --log $(TEST_LOG) $(TEST_IR_FLAG)
+
+ir:
+	@:
 
 check: $(EXE)
 	bash run.sh ./$(EXE)

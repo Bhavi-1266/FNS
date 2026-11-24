@@ -64,9 +64,9 @@ say() {
     [ -n "$LOG" ] && echo "$@" >> "$LOG"
     return 0
 }
-# detail: IR and program output - saved in the log with --log, otherwise printed.
+# detail: print IR/program output and also save it when --log is supplied.
 detail() {
-    if [ -n "$LOG" ]; then cat >> "$LOG"; else cat; fi
+    if [ -n "$LOG" ]; then tee -a "$LOG"; else cat; fi
 }
 
 TIMEOUT=""

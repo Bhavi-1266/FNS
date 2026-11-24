@@ -91,9 +91,10 @@ numbers and no assembly is written), `2` usage / file errors.
 ```bash
 ./run.sh ./fnsc                 # every test; prints PASS/FAIL and a summary
 ./run.sh ./fnsc --show-ir       # also prints the three-address code of each test
-./run.sh ./fnsc --show-ir --log test/output/test_results.txt
-                                # what `make test` runs: everything saved in the log,
-                                #   PASS/FAIL lines on the terminal
+./run.sh ./fnsc --log test/output/test_results.txt
+                                # saves full log; IR is saved per test in test/output/
+make test                       # run tests; save each IR, don't print IR in terminal
+make test ir                    # same, and also print each test's IR in terminal
 ./run.sh ./fnsc 16_classes      # only tests whose name contains the filter
 SIM=/path/to/spim ./run.sh ./fnsc
 ```
@@ -105,6 +106,10 @@ For each program `test/NN_name.c|cpp`, `run.sh`:
    arguments from `test/args/NN_name.args` when present;
 3. saves the output to `test/output/NN_name.out` and compares it with
    `test/expected/NN_name.expected`.
+
+Every valid test source directly under `test/` gets its own optimized IR file,
+`test/output/<name>.ir`, whether or not `--show-ir` is used. New `.c` and `.cpp`
+testcases added there are included automatically.
 
 Every program in `test/errors/` must be **rejected**; its diagnostics are saved in
 `test/output/errors/` and compared with `test/errors/expected/`.

@@ -281,8 +281,12 @@ suppression), field widths, and correct EOF return values. Also `sprintf`,
 stack. Using them outside a loop is a compile error. `goto L` and `L:` keep the
 user's label name in the IR. The compiler checks that every target label exists in
 the function and that no label is defined twice. In C++, destructors of objects
-that go out of scope are called before `break` and `continue` jump. A `goto` out of a
-block does not run them (README 9.4).
+that go out of scope are called before `break`, `continue` and a `goto` that leaves
+blocks. For a `goto`, the target's blocks may not be known yet (a forward jump), so
+the compiler generates the destructor calls of every enclosing block when it reaches
+the `goto`, records which blocks the `goto` and each label are in, and when the
+function is finished inserts before the `goto` the calls for the blocks it actually
+leaves.
 
 ### 3.11 static — test 11
 

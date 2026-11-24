@@ -3,6 +3,7 @@
 // construction/destruction order of globals, static locals, temporaries.
 // Static locals are initialised when control first reaches them (also from a
 // run-time value) and destroyed in reverse order of construction, also by exit().
+// A goto out of blocks destroys the objects of the blocks it leaves.
 #include <cstdio>
 #include <cstdlib>
 
@@ -28,6 +29,21 @@ void first_use(int n) {
     static int calls = n * 10;         // run-time initialiser, evaluated once
     calls++;
     printf("first_use(%d): made %d, calls %d\n", n, made.id, calls);
+}
+
+int search(int target) {
+    T outer(1);
+    for (int i = 0; i < 2; i++) {
+        T row(10 + i);
+        for (int j = 0; j < 2; j++) {
+            T cell(100 + i * 2 + j);
+            if (i * 2 + j == target) goto found;   // leaves cell, row (and the loops)
+        }
+    }
+    return -1;
+found:
+    printf("found %d\n", target);
+    return target;
 }
 
 void pair_of_two() {
@@ -79,6 +95,7 @@ int main() {
     int p = 3, q = 8;
     larger(p, q) = 0;                  // ?: of two lvalues returned by reference
     printf("p=%d q=%d\n", p, q);
+    search(2);
     first_use(8);
     first_use(9);
     pair_of_two();

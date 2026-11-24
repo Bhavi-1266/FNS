@@ -271,10 +271,34 @@ std::string CodeGen::type_str(const TypeSpec &in) {
 void CodeGen::push_scope() {
     Scope s;
     s.func_depth = (int)fn_stack_.size();
+    s.id = ++scope_ids_;
     scopes_.push_back(s);
 }
 
 void CodeGen::pop_scope() { scopes_.pop_back(); }
+
+// The ids of the current function's open scopes, outermost first.
+std::vector<int> CodeGen::scope_chain() const {
+    std::vector<int> chain;
+    for (size_t i = fn_scope_depth_; i < scopes_.size(); ++i) chain.push_back(scopes_[i].id);
+    return chain;
+}
+
+// Insert, before each recorded goto, the destructor calls of the blocks it leaves:
+// the scopes of the goto that are not also scopes of its label (innermost first).
+void CodeGen::patch_gotos(Function *f) {
+    for (auto it = goto_fixes_.rbegin(); it != goto_fixes_.rend(); ++it) {
+        auto lc = label_chains_.find(it->label);
+        if (lc == label_chains_.end()) continue;
+        size_t common = 0;
+        while (common < it->chain.size() && common < lc->second.size() && it->chain[common] == lc->second[common])
+            ++common;
+        std::vector<Instr> calls;
+        for (size_t level = it->chain.size(); level-- > common;)
+            calls.insert(calls.end(), it->cleanup[level].begin(), it->cleanup[level].end());
+        f->code.insert(f->code.begin() + (long)it->at, calls.begin(), calls.end());
+    }
+}
 
 Symbol *CodeGen::lookup(const std::string &name) {
     for (int i = (int)scopes_.size() - 1; i >= 0; --i) {
@@ -1300,6 +1324,10 @@ void CodeGen::gen_function(FuncInfo *fi) {
 
     std::map<std::string, int> saved_labels = labels_defined_;
     std::vector<std::pair<std::string, int>> saved_gotos = gotos_;
+    std::vector<GotoFix> saved_fixes = goto_fixes_;
+    std::map<std::string, std::vector<int>> saved_chains = label_chains_;
+    goto_fixes_.clear();
+    label_chains_.clear();
     labels_defined_.clear();
     gotos_.clear();
 
@@ -1432,8 +1460,11 @@ void CodeGen::gen_function(FuncInfo *fi) {
 
     for (auto &g : gotos_)
         if (!labels_defined_.count(g.first)) error(g.second, "goto to undefined label '" + g.first + "'");
+    patch_gotos(f);
     labels_defined_ = saved_labels;
     gotos_ = saved_gotos;
+    goto_fixes_ = saved_fixes;
+    label_chains_ = saved_chains;
 
     pop_scope();
     fn_scope_depth_ = saved_fn_depth;
@@ -1531,13 +1562,26 @@ void CodeGen::gen_stmt_inner(Node *n) {
             if (!found) error(n->line, "continue outside loop");
             break;
         }
-        case NK::Goto:
+        case NK::Goto: {
             gotos_.push_back({n->str, n->line});
+            GotoFix fix{n->str, 0, scope_chain(), {}};
+            bool any = false;
+            for (size_t level = fn_scope_depth_; level < scopes_.size(); ++level) {
+                size_t mark = cur_->code.size();             // generate each level's cleanup now,
+                emit_level_dtors(level, "");                 // keep it aside until the label is known
+                fix.cleanup.emplace_back(cur_->code.begin() + (long)mark, cur_->code.end());
+                cur_->code.resize(mark);
+                any = any || !fix.cleanup.back().empty();
+            }
+            fix.at = cur_->code.size();
             emit("goto " + user_label(n->str));
+            if (any) goto_fixes_.push_back(fix);
             break;
+        }
         case NK::Label:
             if (labels_defined_.count(n->str)) error(n->line, "duplicate label '" + n->str + "'");
             labels_defined_[n->str] = n->line;
+            label_chains_[n->str] = scope_chain();
             emit_label(user_label(n->str));
             gen_stmt(n->kids[0]);
             break;
@@ -1760,31 +1804,34 @@ void CodeGen::for_each_element(const std::string &base, ClassInfo *ci, int count
 // first, reverse declaration order).  `keep` names an object that must not be
 // destroyed (a local returned by value).
 void CodeGen::emit_scope_dtors(size_t depth, const std::string &keep) {
-    for (size_t i = scopes_.size(); i-- > depth;) {
-        auto &d = scopes_[i].dtors;
-        for (auto it = d.rbegin(); it != d.rend(); ++it) {
-            if (it->first == keep) continue;
-            size_t br = it->first.find('[');
-            if (br != std::string::npos) {                  // an array of objects
-                std::string name = it->first.substr(0, br);
-                int count = std::atoi(it->first.c_str() + br + 1);
-                std::string a = new_temp();
-                emit(a + " = &" + name, "ptr");
-                for_each_element(a, it->second, count, true);
-                continue;
-            }
-            if (!it->second) {                              // a variable-length array's storage
-                emit_call(external("free"), "free", {it->first}, false);
-                continue;
-            }
-            TypeSpec ot;
-            ot.base = it->second->kind;
-            ot.name = it->second->name;
+    for (size_t i = scopes_.size(); i-- > depth;) emit_level_dtors(i, keep);
+}
+
+// Destroy the objects of scopes_[level] (reverse declaration order).
+void CodeGen::emit_level_dtors(size_t level, const std::string &keep) {
+    auto &d = scopes_[level].dtors;
+    for (auto it = d.rbegin(); it != d.rend(); ++it) {
+        if (it->first == keep) continue;
+        size_t br = it->first.find('[');
+        if (br != std::string::npos) {                  // an array of objects
+            std::string name = it->first.substr(0, br);
+            int count = std::atoi(it->first.c_str() + br + 1);
             std::string a = new_temp();
-            emit(a + " = &" + it->first, type_str(pointer_to(ot)));
-            emit("param " + a);
-            emit("call " + it->second->dtor->irname + ", 1");
+            emit(a + " = &" + name, "ptr");
+            for_each_element(a, it->second, count, true);
+            continue;
         }
+        if (!it->second) {                              // a variable-length array's storage
+            emit_call(external("free"), "free", {it->first}, false);
+            continue;
+        }
+        TypeSpec ot;
+        ot.base = it->second->kind;
+        ot.name = it->second->name;
+        std::string a = new_temp();
+        emit(a + " = &" + it->first, type_str(pointer_to(ot)));
+        emit("param " + a);
+        emit("call " + it->second->dtor->irname + ", 1");
     }
 }
 

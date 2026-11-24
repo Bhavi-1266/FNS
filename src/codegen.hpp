@@ -97,6 +97,7 @@ struct Scope {
     std::map<std::string, Symbol> syms;
     std::vector<std::pair<std::string, ClassInfo *>> dtors;   // local objects to destroy at exit
     int func_depth = 0;
+    int id = 0;                                                // unique, to compare goto/label scopes
 };
 
 struct Val {
@@ -295,6 +296,15 @@ private:
     size_t fn_scope_depth_ = 0;
     bool cplusplus_ = true;           // index of the current function's outermost scope
     std::map<std::string, int> labels_defined_;
+    // a goto that may leave blocks: the scopes it is in and, per scope level, the
+    // destructor calls for that level (inserted once the label's scopes are known)
+    struct GotoFix { std::string label; size_t at; std::vector<int> chain; std::vector<std::vector<Instr>> cleanup; };
+    std::vector<GotoFix> goto_fixes_;
+    std::map<std::string, std::vector<int>> label_chains_;
+    int scope_ids_ = 0;
+    std::vector<int> scope_chain() const;
+    void emit_level_dtors(size_t level, const std::string &keep);
+    void patch_gotos(Function *f);
     std::vector<std::pair<std::string, int>> gotos_;
 };
 

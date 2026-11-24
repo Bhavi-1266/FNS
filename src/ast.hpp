@@ -21,6 +21,7 @@ struct TypeSpec {
     std::string name;             // aggregate / typedef name
     int ptr = 0;
     bool ref = false;
+    bool rref = false;            // `T&&` (also sets ref)
     std::vector<int> dims;        // -1 for []
     bool is_unsigned = false;
     bool is_const = false;
@@ -37,6 +38,7 @@ struct Declarator {
     std::string name;
     int ptr = 0;
     bool ref = false;
+    bool rref = false;            // `T&&` (also sets ref)
     std::vector<int> dims;
 };
 

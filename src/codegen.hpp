@@ -281,6 +281,8 @@ private:
     bool uses_atexit_ = false;            // a static-local object registers its destructor
     bool literal_init(Node *init, const TypeSpec &t);
     TypeSpec open_first_dim(TypeSpec t);
+    bool is_move_call(Node *n) const;
+    FuncInfo *move_ctor_of(ClassInfo *ci);
     std::string load_bits(const Val &v);
     void store_bits(const Val &lhs, const std::string &v);
     Val field_val(const std::string &addr, const Field &f);

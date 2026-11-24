@@ -81,10 +81,11 @@ static TypeSpec *apply_quals(TypeSpec *t, int q) {
 }
 
 /* Combine a base type with a declarator (pointer depth, reference, dims). */
-static TypeSpec *with_decl(const TypeSpec *base, int ptr, bool ref, const std::vector<int> *dims) {
+static TypeSpec *with_decl(const TypeSpec *base, int ptr, int ref, const std::vector<int> *dims) {
     TypeSpec *t = new TypeSpec(*base);
     t->ptr += ptr;
     t->ref = t->ref || ref;
+    t->rref = t->rref || ref == 2;          /* 2: rvalue reference T&& */
     if (dims) t->dims = *dims;
     return t;
 }
@@ -488,6 +489,7 @@ pointer_opt
 ref_opt
     : /* empty */   { $$ = 0; }
     | BITAND        { $$ = 1; }
+    | ANDAND        { $$ = 2; }
     ;
 
 array_suffix_opt
@@ -511,7 +513,7 @@ array_suffix_opt
 
 declarator
     : pointer_opt ref_opt IDENTIFIER array_suffix_opt
-        { $$ = new Declarator; $$->name = $3; $$->ptr = $1; $$->ref = $2 != 0; $$->dims = *$4; }
+        { $$ = new Declarator; $$->name = $3; $$->ptr = $1; $$->ref = $2 != 0; $$->rref = $2 == 2; $$->dims = *$4; }
     ;
 
 /* the parenthesised part of `int (*f)(int)`, `int (**pp)(int)`, `int (*ops[4])(int)`, `int (*rows)[3]` */
@@ -524,26 +526,26 @@ init_declarator
     : declarator
         {
             record($1->name.c_str(), g_current_type);
-            TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->dims = $1->dims;
+            TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->rref = $1->rref; t->dims = $1->dims;
             $$ = var_decl($1->name, t, nullptr);
         }
     | declarator ASSIGN initializer
         {
             record($1->name.c_str(), g_current_type);
-            TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->dims = $1->dims;
+            TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->rref = $1->rref; t->dims = $1->dims;
             $$ = var_decl($1->name, t, $3);
         }
     | declarator LPAREN arg_list RPAREN
         {   /* direct-initialisation: Point p(1, 2);  int x(5); */
             record($1->name.c_str(), g_current_type);
-            TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->dims = $1->dims;
+            TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->rref = $1->rref; t->dims = $1->dims;
             $3->kind = NK::InitList; $3->flags |= fns::F_CTOR;
             $$ = var_decl($1->name, t, $3);
         }
     | declarator brace_init
         {   /* list-initialisation: Point p{1, 2};  int x{5}; */
             record($1->name.c_str(), g_current_type);
-            TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->dims = $1->dims;
+            TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->rref = $1->rref; t->dims = $1->dims;
             $2->flags |= fns::F_VALUE_INIT;
             $$ = var_decl($1->name, t, $2);
         }
@@ -613,7 +615,7 @@ simple_decl
         {
             $$ = $3;
             for (Node *d : $$->kids) {
-                d->type = with_decl($1, d->type->ptr, d->type->ref, &d->type->dims);
+                d->type = with_decl($1, d->type->ptr, d->type->rref ? 2 : d->type->ref, &d->type->dims);
                 if ($1->is_static) d->flags |= fns::F_STATIC;
             }
             if ($1->agg_def) $$->kids.insert($$->kids.begin(), $1->agg_def);
@@ -644,13 +646,13 @@ param
         {
             record($2->name.c_str(), $1->kind_str.c_str());
             $$ = mk(NK::Param, $2->name);
-            $$->type = with_decl($1, $2->ptr, $2->ref, &$2->dims);
+            $$->type = with_decl($1, $2->ptr, $2->rref ? 2 : $2->ref, &$2->dims);
         }
     | type_spec declarator ASSIGN assignment_expr
         {   /* C++ default argument */
             record($2->name.c_str(), $1->kind_str.c_str());
             $$ = mk(NK::Param, $2->name);
-            $$->type = with_decl($1, $2->ptr, $2->ref, &$2->dims);
+            $$->type = with_decl($1, $2->ptr, $2->rref ? 2 : $2->ref, &$2->dims);
             $$->kids.push_back($4);
         }
     | type_spec
@@ -661,6 +663,10 @@ param
         { $$ = mk(NK::Param); $$->type = with_decl($1, 1 + $2, false, nullptr); }
     | type_spec pointer_opt STAR CONST_KW
         { $$ = mk(NK::Param); $$->type = with_decl($1, 1 + $2, false, nullptr); }
+    | type_spec pointer_opt BITAND
+        { $$ = mk(NK::Param); $$->type = with_decl($1, $2, 1, nullptr); }     /* unnamed T& */
+    | type_spec pointer_opt ANDAND
+        { $$ = mk(NK::Param); $$->type = with_decl($1, $2, 2, nullptr); }     /* unnamed T&& */
     | type_spec paren_declarator LPAREN param_list_opt RPAREN
         { record($2->name.c_str(), $1->kind_str.c_str()); $$ = mk(NK::Param, $2->name); $$->type = fnptr_decl($1, $2, $4); }
     | type_spec paren_declarator array_suffix_opt

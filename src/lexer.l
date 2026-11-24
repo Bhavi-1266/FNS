@@ -101,6 +101,12 @@ FLOATLIT     (({DIGIT}+\.{DIGIT}*|{DIGIT}*\.{DIGIT}+){EXP}?|{DIGIT}+{EXP}){FLOAT
     return CXXCAST;
 }
 
+"std"[ \t]*"::"[ \t]*"move" {
+    /* std::move(x): the only std:: function, turned into a builtin (x as an rvalue) */
+    TOKEN(fns::TokenType::IDENTIFIER, yytext);
+    yylval.str = strdup("__fns_move");
+    return IDENTIFIER;
+}
 {ID}[ \t]*"::"[ \t]*"~"?[ \t]*{ID} {
     /* Class::member is one token, so a statement may start with Base::f()
        and members may be defined outside the class body. */

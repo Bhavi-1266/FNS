@@ -596,7 +596,8 @@ the same code as writing that type directly.
 
 **Supported:** reference variables, pass-by-reference, return-by-reference
 (`int& at(int i)`, which can be assigned to), `const` references to temporaries,
-references to objects, references to pointers, and references to the result of `?:`.
+references to objects, references to pointers, references to the result of `?:`,
+and rvalue references `T&&` with `std::move` and move constructors.
 
 **How:** a reference is a hidden pointer. Declaring it stores an address, and every
 use loads or stores through that address. A call passes `&x`:
@@ -616,6 +617,16 @@ function inc(int& r) : void
 
 A `const T&` bound to a temporary value first stores the value in a hidden local,
 then passes that local's address.
+
+**Rvalue references.** `T&&` is a reference with an extra "rvalue" flag. It binds a
+temporary the same way as `const T&` (through a hidden local, which can then be
+changed) or the object named by `std::move(x)`. Binding a named variable is an error
+(`cannot bind rvalue reference of type 'int&&' to lvalue of type 'int'`). In overload
+resolution a `T&&` parameter is not viable for an lvalue argument and wins over
+`const T&` for an rvalue. The lexer turns `std::move` into the builtin `__fns_move`,
+which yields its argument unchanged but counts as an rvalue: `T b = std::move(a);` and
+passing `std::move(a)` by value call the move constructor `T(T&&)` (or the copy
+constructor if there is none).
 
 ### 4.12 enum and union — tests 22, 32
 

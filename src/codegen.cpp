@@ -260,7 +260,7 @@ std::string CodeGen::type_str(const TypeSpec &in) {
     }
     for (int d : t.dims) s += d < 0 ? "[]" : "[" + itos(d) + "]";
     for (int i = 0; i < t.ptr; ++i) s += "*";
-    if (t.ref) s += "&";
+    if (t.ref) s += t.rref ? "&&" : "&";
     return s;
 }
 
@@ -1663,6 +1663,21 @@ void CodeGen::gen_vla(Node *n, Node *bound) {
 }
 
 // Is the expression a named object (variable, member, element, dereference)?
+// std::move(x) (lexed as __fns_move): x as an rvalue, which may bind to T&& and moves.
+bool CodeGen::is_move_call(Node *n) const {
+    return n && n->kind == NK::Call && n->kids[0]->kind == NK::Ident && n->kids[0]->str == "__fns_move" &&
+           n->kids[1] && n->kids[1]->kids.size() == 1;
+}
+
+// The move constructor T(T&&) of a class, if any.
+FuncInfo *CodeGen::move_ctor_of(ClassInfo *ci) {
+    for (FuncInfo *c = ci->ctor; c; c = c->next_overload) {
+        TypeSpec p = c->params.empty() ? TypeSpec() : resolve(c->params[0]);
+        if (c->params.size() == 1 && p.rref && p.ptr == 0 && class_of(p) == ci) return c;
+    }
+    return nullptr;
+}
+
 bool CodeGen::is_lvalue_node(Node *n) const {
     if (!n) return false;
     switch (n->kind) {
@@ -1814,13 +1829,17 @@ void CodeGen::gen_var_init(const Symbol &sym, const TypeSpec &t, Node *init) {
             error(init->line, "reference of type '" + type_str(t) + "' cannot bind to an object of type '" + type_str(vt) + "'");
             return;
         }
+        if (t.rref && is_lvalue_node(init)) {
+            error(init->line, "cannot bind rvalue reference of type '" + type_str(t) + "' to lvalue of type '" + type_str(vt) + "'");
+            return;
+        }
         if ((v.k == Val::Var || v.k == Val::Addr) && types_match) {
             if (is_aggregate(vt)) base_accessible(init->line, class_of(vt), class_of(referent));
             a = addr_of(v);
-        } else if (t.is_const) {
+        } else if (t.is_const || t.rref) {           // a temporary holds the value
             if (!check_assignable(init->line, referent, v, "reference initialization")) return;
             TypeSpec value_type = t;
-            value_type.ref = false;
+            value_type.ref = value_type.rref = false;
             std::string tmp = unique_local("ref_tmp");
             cur_->locals.push_back(tmp + " : " + type_str(value_type) + " (" + itos(size_of(value_type)) + ")");
             emit(tmp + " = " + convert(rvalue(v), v.type, value_type), type_str(value_type));
@@ -1889,11 +1908,13 @@ void CodeGen::gen_var_init(const Symbol &sym, const TypeSpec &t, Node *init) {
             return;
         }
     }
-    if (ci && copy_ctor_of(ci) && init->kind != NK::InitList && is_lvalue_node(init)) {
+    FuncInfo *cc = !ci || init->kind == NK::InitList ? nullptr
+                 : is_lvalue_node(init) ? copy_ctor_of(ci)
+                 : is_move_call(init) ? (move_ctor_of(ci) ? move_ctor_of(ci) : copy_ctor_of(ci)) : nullptr;
+    if (cc) {
         TypeSpec it = type_of_expr(init);
         if (is_aggregate(it) && it.ptr == 0 && class_of(it) && derives_from(class_of(it), ci)) {
-            Val src = gen_expr(init);              // T b = a;  runs the copy constructor
-            FuncInfo *cc = copy_ctor_of(ci);
+            Val src = gen_expr(init);              // T b = a; / T b = std::move(a);
             std::string a = addr_of(target);
             emit("param " + a);
             emit("param " + addr_of(src));
@@ -3464,16 +3485,19 @@ std::vector<std::string> CodeGen::eval_args(FuncInfo *fi, Node *args_in, int ski
             at.ref = false;
             bool types_match = same_type(referent, at) ||
                 (is_aggregate(referent) && is_aggregate(at) && derives_from(class_of(at), class_of(referent)));
-            if ((a.k == Val::Var || a.k == Val::Addr) && !types_match && !fi->params[pi].is_const) {
+            if (fi->params[pi].rref && is_lvalue_node(args->kids[i])) {
+                error(args->kids[i]->line, "cannot bind rvalue reference of type '" + type_str(fi->params[pi]) + "' to lvalue of type '" + type_str(at) + "'");
+                places.push_back("0");
+            } else if ((a.k == Val::Var || a.k == Val::Addr) && !types_match && !fi->params[pi].is_const) {
                 error(args->kids[i]->line, "reference parameter of type '" + type_str(fi->params[pi]) + "' cannot bind to an argument of type '" + type_str(at) + "'");
                 places.push_back("0");
             } else if ((a.k == Val::Var || a.k == Val::Addr) && types_match) {
                 if (is_aggregate(at)) base_accessible(args->kids[i]->line, class_of(at), class_of(referent));
                 places.push_back(addr_of(a));
-            } else if (fi->params[pi].is_const) {
+            } else if (fi->params[pi].is_const || fi->params[pi].rref) {
                 if (!check_assignable(args->kids[i]->line, referent, a, "argument passing")) { places.push_back("0"); continue; }
                 TypeSpec value_type = fi->params[pi];
-                value_type.ref = false;
+                value_type.ref = value_type.rref = false;
                 std::string tmp = unique_local("ref_arg");
                 cur_->locals.push_back(tmp + " : " + type_str(value_type) + " (" + itos(size_of(value_type)) + ")");
                 std::string value = convert(rvalue(a), a.type, value_type);
@@ -3498,7 +3522,8 @@ std::vector<std::string> CodeGen::eval_args(FuncInfo *fi, Node *args_in, int ski
             ClassInfo *ac = class_of(a.type);
             // copy constructor only for named objects: a temporary (call result) is
             // moved by a byte copy, like the copy elision C++ compilers perform
-            FuncInfo *cc = (ac && is_lvalue_node(args->kids[i])) ? copy_ctor_of(ac) : nullptr;
+            FuncInfo *cc = !ac ? nullptr : is_lvalue_node(args->kids[i]) ? copy_ctor_of(ac)
+                         : is_move_call(args->kids[i]) ? (move_ctor_of(ac) ? move_ctor_of(ac) : copy_ctor_of(ac)) : nullptr;
             if (ac && ac->dtor) temp_dtors_.push_back({copy_name, ac});   // destroyed after the statement
             if (cc) {                       // pass by value through the copy constructor
                 emit("param " + copy_addr);
@@ -3630,6 +3655,7 @@ FuncInfo *CodeGen::pick_overload(FuncInfo *head, Node *args, int line) {
         int score = 0;
         for (size_t i = 0; i < n && i < c->params.size() && score >= 0; ++i) {
             int k = conversion_score(c->params[i], types[i]);
+            if (k >= 0 && c->params[i].rref) k = is_lvalue_node(args->kids[i]) ? -1 : k + 1;   // T&& binds rvalues
             score = k < 0 ? -1 : score + k;
         }
         if (score < 0) continue;
@@ -3653,7 +3679,7 @@ FuncInfo *CodeGen::copy_ctor_of(ClassInfo *ci) {
         for (size_t i = 1; i < c->params.size(); ++i)
             if (i >= c->defaults.size() || !c->defaults[i]) rest_default = false;
         TypeSpec p = resolve(c->params[0]);
-        if (rest_default && p.ref && p.ptr == 0 && class_of(p) == ci) return c;
+        if (rest_default && p.ref && !p.rref && p.ptr == 0 && class_of(p) == ci) return c;
     }
     return nullptr;
 }
@@ -3722,6 +3748,8 @@ Val CodeGen::gen_call(Node *n) {
     Node *callee = n->kids[0];
     Node *args = n->kids[1];
     Val out;
+
+    if (is_move_call(n)) return gen_expr(args->kids[0]);   // std::move(x): x, used as an rvalue
 
     // constructor call producing a temporary object
     if (callee->kind == NK::TypeName) {
@@ -4087,7 +4115,8 @@ bool CodeGen::same_type(const TypeSpec &a_in, const TypeSpec &b_in) {
     if (a.decayed) a = pointer_to(a);
     if (b.decayed) b = pointer_to(b);
     if (a.base == Base::Func && b.base == Base::Func) return true;
-    return a.base == b.base && a.name == b.name && a.ptr == b.ptr && a.ref == b.ref && a.dims == b.dims;
+    return a.base == b.base && a.name == b.name && a.ptr == b.ptr && a.ref == b.ref &&
+           (!a.ref || a.rref == b.rref) && a.dims == b.dims;
 }
 
 // Reports and returns false when a value of type `from` cannot be stored in an object

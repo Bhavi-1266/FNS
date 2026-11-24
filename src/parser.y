@@ -822,6 +822,7 @@ member
     | destructor_def               { $$ = $1; }
     | VIRTUAL_KW destructor_def    { $$ = $2; $$->flags |= fns::F_VIRTUAL; }
     | bitfield_list SEMI           { $$ = $1; }
+    | type_spec SEMI               { $$ = $1->agg_def ? $1->agg_def : mk(NK::Empty); }   /* nested type */
     ;
 
 /* bit-fields: `unsigned a : 3, b : 5;`, unnamed `int : 4;` and `int : 0;` (kids[0] = width) */

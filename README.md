@@ -346,7 +346,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 
 | Topic | FNS | C++ |
 |---|---|---|
-| Classes | `class`/`struct` with fields, methods (in-class or out-of-class `R C::f() {…}`), constructors with initializer lists, destructors, static data members and static methods, `this`, const methods. Nested class definitions inside a class body are not supported. | full |
+| Classes | `class`/`struct` with fields, methods (in-class or out-of-class `R C::f() {…}`), constructors with initializer lists, destructors, static data members and static methods, `this`, const methods, nested classes/structs/enums (`Outer::Inner`, `Outer::VALUE`). A nested type's name is also visible without `Outer::` (C++ requires the qualification outside the class), a nested class gets no special access to the outer class's private members, and its methods must be defined inside it. | full |
 | Access control | `public`/`private`/`protected` checked, including the protected rule for derived classes; `friend` is not supported | + friend |
 | Inheritance | single inheritance (multi-level allowed) with `public`, `protected` or `private` base access, enforced as in C++ (including conversion to an inaccessible base). Multiple and virtual inheritance are not supported. | all |
 | Virtual functions | vtable dispatch; pure virtual functions; virtual destructors. Instantiating an abstract class is not rejected (calling the pure function prints `pure virtual method called` and stops). | abstract classes rejected |

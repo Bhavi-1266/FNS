@@ -2832,6 +2832,15 @@ Val CodeGen::gen_expr(Node *n) {
                 v.type = field->type;
                 return v;
             }
+            Symbol *e = ci ? lookup(n->str) : nullptr;      // Outer::VALUE: enumerator of a nested enum
+            if (e && e->kind == Symbol::EnumConst) {
+                v.k = Val::RVal;
+                v.place = itos(e->value);
+                v.cval = e->value;
+                v.is_const = true;
+                v.type = e->type;
+                return v;
+            }
             unsupported(n->line, "scope resolution " + lhs->str + "::" + n->str);
             v.k = Val::RVal;
             v.place = "0";

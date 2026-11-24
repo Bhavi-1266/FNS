@@ -352,7 +352,7 @@ U_add:                         # int add(int a, int b)
 **Supported:** classes and structs with member functions, constructors (default,
 overloaded, with initialiser lists, defined inside or outside the class with
 `Class::method`), destructors, `this`, static data members and static methods,
-const methods, delegating constructors, arrays of objects, objects created with `new`/`delete`, and objects
+const methods, delegating constructors, nested classes and enums, arrays of objects, objects created with `new`/`delete`, and objects
 passed and returned by value.
 
 **How:**
@@ -363,6 +363,9 @@ passed and returned by value.
 - **Constructors and destructors:** constructors become `C_C(this, …)` and destructors `C__dtor(this)`.
 - **Creating objects:** `C obj(args)`, `C obj{args}` and `C obj = C(args)` all
   construct the object in place, in its own storage.
+- **Nested types:** a class, struct or enum defined inside a class body is laid out
+  like a top-level one; the lexer reads `Outer::Inner` as the type `Inner`, and
+  `Outer::VALUE` finds the enumerator.
 - **Delegating constructors:** `Box() : Box(1)` calls the other constructor on `this`
   and skips the base, vtable and member initialisation (the target does them); other
   initialisers next to a delegating one are an error.

@@ -118,6 +118,12 @@ FLOATLIT     (({DIGIT}+\.{DIGIT}*|{DIGIT}*\.{DIGIT}+){EXP}?|{DIGIT}+{EXP}){FLOAT
         std::string member;
         for (size_t i = text.find("::") + 2; i < text.size(); ++i)
             if (text[i] != ' ' && text[i] != '\t') member += text[i];
+        if (member != cls && fns::DeclTable::instance().is_type_name(member)) {
+            /* Outer::Inner names a nested class/struct/enum: the type itself */
+            TOKEN(fns::TokenType::IDENTIFIER, yytext);
+            yylval.str = strdup(member.c_str());
+            return TYPE_NAME;
+        }
         TOKEN(fns::TokenType::IDENTIFIER, yytext);
         yylval.str = strdup((cls + "::" + member).c_str());
         return SCOPED_NAME;

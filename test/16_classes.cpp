@@ -1,7 +1,8 @@
 // Feature: classes and objects: data members, member functions, constructors (default,
 // parameterised, overloaded, initializer lists), destructors run at end of scope,
 // this->, const methods, static members, objects in arrays, new/delete, out-of-class
-// definitions, direct (T x(a)) and list (T x{a}) initialisation, delegating constructors.
+// definitions, direct (T x(a)) and list (T x{a}) initialisation, delegating constructors,
+// nested classes and enums (Outer::Inner, Outer::VALUE).
 #include <cstdio>
 
 class Counter {
@@ -66,7 +67,30 @@ public:
     int area() const { return w * h; }
 };
 
+class Stack {                     // nested types: a private node struct, a public iterator and enum
+    struct Node { int val; Node *next; Node(int v, Node *n) : val(v), next(n) {} };
+    Node *top;
+public:
+    enum Kind { EMPTY, NON_EMPTY };
+    class Walker {
+        Node *cur;
+    public:
+        Walker(Node *n) : cur(n) {}
+        bool more() const { return cur != nullptr; }
+        int next() { int v = cur->val; cur = cur->next; return v; }
+    };
+    Stack() : top(nullptr) {}
+    ~Stack() { while (top) { Node *n = top->next; delete top; top = n; } }
+    void push(int v) { top = new Node(v, top); }
+    Walker walk() const { return Walker(top); }
+    Kind kind() const { return top ? NON_EMPTY : EMPTY; }
+};
+
 int main() {
+    Stack st;
+    printf("stack kind %d\n", st.kind() == Stack::EMPTY);
+    for (int i = 1; i <= 3; i++) st.push(i * 10);
+    for (Stack::Walker w = st.walk(); w.more();) printf("walk %d\n", w.next());
     Box b0;
     Box b3(3);
     printf("box areas %d %d\n", b0.area(), b3.area());

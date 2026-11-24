@@ -47,7 +47,8 @@ enum class NK {
     Goto, Label, Return, Empty,
     Binary, Unary, PostInc, PostDec, Assign, Cond, Comma, Call, Index, Member, Arrow, Scope,
     Ident, TypeName, IntLit, FloatLit, StrLit, CharLit, BoolLit, Nullptr, Cast,
-    SizeofType, SizeofExpr, New, Delete, Lambda, InitList
+    SizeofType, SizeofExpr, New, Delete, Lambda, InitList,
+    Designator      // `.a[2].b = v`: kids[0] = v, kids[1..] = steps (Member: str = field, Index: kids[0] = index)
 };
 
 enum NodeFlag {

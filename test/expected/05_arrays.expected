@@ -11,3 +11,4 @@ upper=2 lower=8 digits=3 other=4
 Mon-ann Tue-bob Wed-cy 
 bd
 fib[11]=89
+mon tue wed | 0 10 0 30 40 | 4 9 0

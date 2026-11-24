@@ -275,6 +275,7 @@ private:
     std::vector<StaticObj> static_objs_;  // global objects destroyed by __global_fini
     bool uses_atexit_ = false;            // a static-local object registers its destructor
     bool literal_init(Node *init, const TypeSpec &t);
+    bool designated_member(const std::string &a, const TypeSpec &t, Node *list, size_t &idx);
     std::vector<std::pair<std::string, ClassInfo *>> temp_dtors_;   // argument copies to destroy
     std::map<size_t, int> dim_values_;    // evaluated constant-expression array bounds
     std::vector<size_t> loop_depth_;      // scopes_.size() when each loops_ entry was pushed

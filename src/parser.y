@@ -218,7 +218,7 @@ static Node *func_node(NK kind, Node *params, Node *ctor_init, Node *body) {
 %type <dims> array_suffix_opt
 %type <node> top_level_list top_level_item toplevel_decl toplevel_decl_tail typedef_decl
 %type <node> member member_list member_list_opt enumerator_list
-%type <node> init_declarator init_declarator_list initializer brace_init init_list_opt init_list
+%type <node> init_declarator init_declarator_list initializer brace_init init_list_opt init_list init_item designator_index designator_atom designation
 %type <node> simple_decl simple_paren_decl fnptr_function_head declaration_stmt more_declarators_opt
 %type <node> param param_list param_list_opt ctor_init_opt ctor_init_list ctor_init_item
 %type <node> constructor_def destructor_def
@@ -570,8 +570,42 @@ init_list_opt
     ;
 
 init_list
-    : initializer                    { $$ = mk1(NK::InitList, $1); }
-    | init_list COMMA initializer    { $$ = $1; $$->kids.push_back($3); }
+    : init_item                      { $$ = mk1(NK::InitList, $1); }
+    | init_list COMMA init_item      { $$ = $1; $$->kids.push_back($3); }
+    ;
+
+/* an initializer, optionally designated: `.x = 1`, `[3] = 7`, `.lo.x = 0`, `[1][2] = 5` */
+init_item
+    : initializer                     { $$ = $1; }
+    | designation ASSIGN initializer  { $$ = $1; $$->kids[0] = $3; }
+    ;
+
+designation
+    : DOT IDENTIFIER                            { $$ = mk2(NK::Designator, nullptr, mk(NK::Member, $2)); }
+    | LBRACKET designator_index RBRACKET        { $$ = mk2(NK::Designator, nullptr, mk1(NK::Index, $2)); }
+    | LBRACKET capture_list_opt RBRACKET
+        {   /* `[NAME]`: read like a lambda capture list so `[x]` needs no early decision */
+            std::string name = $2;
+            if (name.empty() || name.find_first_of("&=,") != std::string::npos)
+                fns::DeclTable::instance().record_error(yylineno, "array designator must be a constant index");
+            $$ = mk2(NK::Designator, nullptr, mk1(NK::Index, mk(NK::Ident, name)));
+        }
+    | designation DOT IDENTIFIER                     { $$ = $1; $$->kids.push_back(mk(NK::Member, $3)); }
+    | designation LBRACKET designator_index RBRACKET { $$ = $1; $$->kids.push_back(mk1(NK::Index, $3)); }
+    ;
+
+/* a numeric array designator: literals with + - *, or a parenthesised expression */
+designator_index
+    : designator_atom                          { $$ = $1; }
+    | designator_index PLUS designator_atom    { $$ = mk2(NK::Binary, $1, $3, "+"); }
+    | designator_index MINUS designator_atom   { $$ = mk2(NK::Binary, $1, $3, "-"); }
+    | designator_index STAR designator_atom    { $$ = mk2(NK::Binary, $1, $3, "*"); }
+    ;
+
+designator_atom
+    : INTEGER                              { $$ = mk(NK::IntLit, $1); }
+    | CHARLIT                              { $$ = mk(NK::CharLit, $1); }
+    | LPAREN conditional_expr RPAREN       { $$ = $2; }
     ;
 
 simple_decl

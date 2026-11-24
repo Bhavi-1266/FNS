@@ -171,7 +171,8 @@ L8:
 ### 3.5 Arrays (int and char) — tests 05, 23
 
 **Supported:** fixed-size arrays of any element type, initialiser lists (complete,
-partial with zero fill, inferred size `int a[] = {…}`), char arrays from string
+partial with zero fill, inferred size `int a[] = {…}`), designated initialisers
+(`{[3] = 30, 40, [1] = 10}`, `{[WED] = "wed"}`, `{[1][2] = 9}`), char arrays from string
 literals, arrays of strings, and arrays as function parameters. The size can be any
 constant expression (`int a[N * 2]`).
 
@@ -208,13 +209,22 @@ is scaled by the row size, and `*(a + i)` gives the row, which decays to `int*`.
 
 **Supported:** struct definitions, nested structs, arrays of structs, structs
 containing arrays, pointers to structs, struct assignment, pass and return by value,
-`typedef struct`, self-referential structs (linked lists, trees), and brace initialisers.
+`typedef struct`, self-referential structs (linked lists, trees), brace initialisers,
+and designated initialisers (`{.year = 2026, .day = 24}`, nested `{.lo.x = 0}`, and
+`{[2] = {.month = 12}, [0].day = 1}` in arrays of structs).
 
 **How:** `codegen.cpp` lays out the fields in declaration order. Each field is aligned
 to its size (at most 4), and the struct size is rounded up to 4. `s.f` becomes
 `&s + offset(f)`, and `p->f` becomes `p + offset(f)`. Struct assignment and
 by-value passing use the IR instruction `copy dst, src, n`, which the back end
 expands into word copies.
+
+**Designated initialisers.** A designator `.f`, `[i]` or a chain such as `.lo.x` is a
+`Designator` node in the brace list. The object is zeroed first; `fill_aggregate`
+then moves its position to the designated member or element (later plain items
+continue from there), and for a chain `designated_member` follows the remaining steps
+to the sub-object's address and initialises only that sub-object. An array without a
+size takes its size from the largest designated position.
 
 ### 3.8 printf and scanf — tests 08, 30
 

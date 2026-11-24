@@ -1,5 +1,6 @@
 /* Feature: struct: nested, arrays of structs, pointers, copy, pass/return by value,
-   typedef struct, self-referential struct (linked list), sizeof and layout. */
+   typedef struct, self-referential struct (linked list), sizeof and layout,
+   designated initializers (.field = v, nested .a.b = v, in arrays of structs). */
 #include <stdio.h>
 #include <string.h>
 
@@ -60,5 +61,10 @@ int main() {
     printf("sizeof(struct Date)=%d sizeof(Complex)=%d\n", (int)sizeof(struct Date), (int)sizeof(Complex));
     struct Date *dp = &s[1].dob;
     printf("via pointer: %d-%d-%d\n", dp->year, dp->month, dp->day);
+    /* designated initializers: any order, nested members, the rest zero */
+    struct Date d1 = { .year = 2026, .day = 24 };
+    struct Date ds[3] = { [2] = { .month = 12 }, [0].day = 1 };
+    Complex z = { .im = -1.5 };
+    printf("%d/%d/%d %d %d %d %.1f %.1f\n", d1.day, d1.month, d1.year, ds[0].day, ds[2].month, ds[1].year, z.re, z.im);
     return 0;
 }

@@ -1891,6 +1891,13 @@ int CodeGen::scalar_leaves(const TypeSpec &t_in) {
 // elision as many elements as the flat list fills.
 int CodeGen::inferred_bound(const TypeSpec &t, Node *init) {
     TypeSpec et = elem_type(t);
+    bool designated = false;
+    long pos = 0, bound = 0;                       // `[i] = v` moves the position
+    for (Node *k : init->kids) {
+        if (k->kind == NK::Designator && k->kids[1]->kind == NK::Index) { designated = true; eval_const_int(k->kids[1]->kids[0], pos); }
+        bound = std::max(bound, ++pos);
+    }
+    if (designated) return static_cast<int>(bound);
     bool flat = !init->kids.empty();
     for (Node *k : init->kids) if (!needs_elision(et, k)) flat = false;
     if (!flat) return static_cast<int>(init->kids.size());
@@ -1905,13 +1912,33 @@ int CodeGen::inferred_bound(const TypeSpec &t, Node *init) {
 // elements/members, sharing init_member for the individual items.
 void CodeGen::fill_aggregate(const std::string &base, const TypeSpec &t, Node *list, size_t &idx,
                              bool braced) {
-    size_t n = list->kids.size();
+    size_t n = list->kids.size(), start = idx;
+    // a designator belongs to this list when it is braced; an elided sub-object
+    // ends at the next designator after its first item
+    auto designator = [&]() -> Node * {
+        Node *d = idx < n && list->kids[idx]->kind == NK::Designator ? list->kids[idx] : nullptr;
+        return d && (braced || idx != start) ? d : nullptr;
+    };
     if (is_array(t)) {
         TypeSpec et = elem_type(t);
         int es = size_of(et);
         size_t limit = (!t.dims.empty() && t.dims[0] >= 0) ? static_cast<size_t>(t.dims[0]) : n;
-        for (size_t i = 0; idx < n && i < limit; ++i)
-            init_member(offset_addr(base, (int)i * es, type_str(pointer_to(et))), et, list, idx);
+        for (size_t i = 0; idx < n; ++i) {
+            if (Node *d = designator()) {
+                long at = -1;
+                if (!braced) return;
+                if (d->kids[1]->kind != NK::Index || !eval_const_int(d->kids[1]->kids[0], at) || at < 0 || (size_t)at >= limit) {
+                    error(d->line, d->kids[1]->kind != NK::Index ? "field designator in an array initializer"
+                                   : "array designator index is not a constant inside the array bounds");
+                    ++idx;
+                    continue;
+                }
+                i = (size_t)at;
+            }
+            if (i >= limit) break;
+            std::string a = offset_addr(base, (int)i * es, type_str(pointer_to(et)));
+            if (!designated_member(a, et, list, idx)) init_member(a, et, list, idx);
+        }
         return;
     }
     ClassInfo *ci = class_of(t);
@@ -1922,6 +1949,24 @@ void CodeGen::fill_aggregate(const std::string &base, const TypeSpec &t, Node *l
     size_t fi = 0;
     bool first = true;
     while (idx < n) {
+        if (Node *d = designator()) {             // `.name = v`: continue from that member
+            if (!braced) break;
+            if (d->kids[1]->kind != NK::Member) {
+                error(d->line, "array designator in a struct initializer");
+                ++idx;
+                continue;
+            }
+            size_t at = 0;
+            const std::string &name = d->kids[1]->str;
+            while (at < ci->fields.size() && (ci->fields[at].name != name || ci->fields[at].is_static)) ++at;
+            if (at == ci->fields.size()) {
+                error(d->line, "no member '" + name + "' in '" + ci->name + "'");
+                ++idx;
+                continue;
+            }
+            fi = at;
+            if (ci->kind == Base::Union) first = true;   // a later designator picks another member
+        }
         while (fi < ci->fields.size() && ci->fields[fi].is_static) ++fi;
         if (fi >= ci->fields.size()) break;
         if (ci->kind == Base::Union && !first) break;
@@ -1930,6 +1975,7 @@ void CodeGen::fill_aggregate(const std::string &base, const TypeSpec &t, Node *l
         std::string a = offset_addr(base, f.offset, type_str(pointer_to(f.type)));
         if (f.type.ref) {
             Node *k = list->kids[idx++];
+            if (k->kind == NK::Designator) k = k->kids[0];
             Val v = gen_expr(k);
             if (v.k != Val::Var && v.k != Val::Addr)
                 error(k->line, "reference member must bind to an lvalue");
@@ -1937,7 +1983,7 @@ void CodeGen::fill_aggregate(const std::string &base, const TypeSpec &t, Node *l
                 emit("*" + a + " = " + addr_of(v), type_str(pointer_to(f.type)));
             continue;
         }
-        init_member(a, f.type, list, idx);
+        if (!designated_member(a, f.type, list, idx)) init_member(a, f.type, list, idx);
     }
     if (braced)
         for (; fi < ci->fields.size(); ++fi)
@@ -1945,10 +1991,38 @@ void CodeGen::fill_aggregate(const std::string &base, const TypeSpec &t, Node *l
                 error(list->line, "reference member '" + ci->fields[fi].name + "' requires an initializer");
 }
 
+// `.a.b = v` / `[i][j] = v`: after the first step chose the member or element at
+// `a`, follow the remaining steps to the sub-object and initialise only that.
+bool CodeGen::designated_member(const std::string &a_in, const TypeSpec &t_in, Node *list, size_t &idx) {
+    Node *d = list->kids[idx];
+    if (d->kind != NK::Designator || d->kids.size() < 3) return false;
+    std::string a = a_in;
+    TypeSpec t = resolve(t_in);
+    for (size_t s = 2; s < d->kids.size(); ++s) {
+        Node *step = d->kids[s];
+        long at = -1;
+        if (step->kind == NK::Index && is_array(t) && eval_const_int(step->kids[0], at) && at >= 0 && at < t.dims[0]) {
+            t = resolve(elem_type(t));
+            a = offset_addr(a, (int)at * size_of(t), type_str(pointer_to(t)));
+        } else if (step->kind == NK::Member && class_of(t) && find_field(class_of(t), step->str)) {
+            const Field *f = find_field(class_of(t), step->str);
+            t = resolve(f->type);
+            a = offset_addr(a, f->offset, type_str(pointer_to(t)));
+        } else {
+            error(d->line, "invalid designator in initializer");
+            ++idx;
+            return true;
+        }
+    }
+    init_member(a, t, list, idx);
+    return true;
+}
+
 // One element or member from list->kids[idx]: a nested brace list, a string
 // for a char array, an elided sub-aggregate, or a single expression.
 void CodeGen::init_member(const std::string &a, const TypeSpec &t, Node *list, size_t &idx) {
     Node *k = list->kids[idx];
+    if (k->kind == NK::Designator) k = k->kids[0];      // the position was set by fill_aggregate
     if (k->kind == NK::InitList) {
         ++idx;
         size_t j = 0;

@@ -1,5 +1,6 @@
 /* Feature: arrays of int and char: initialisation, partial init (zero fill), inferred size,
-   passing to functions, searching/sorting, strings as char arrays, sizeof. */
+   passing to functions, searching/sorting, strings as char arrays, sizeof,
+   designated initializers ([i] = v, also inferring the size and indexing with enums). */
 #include <stdio.h>
 
 int sum(int a[], int n) { int s = 0; for (int i = 0; i < n; i++) s += a[i]; return s; }
@@ -76,5 +77,13 @@ int main() {
     fib[0] = 0; fib[1] = 1;
     for (int i = 2; i < 12; i++) fib[i] = fib[i - 1] + fib[i - 2];
     printf("fib[11]=%d\n", fib[11]);
+    /* designated initializers: the others are zero, a later item continues after [i] */
+    enum { MON, TUE, WED, NDAYS };
+    const char *day[NDAYS] = { [WED] = "wed", [MON] = "mon", [TUE] = "tue" };
+    int sparse[] = { [3] = 30, 40, [1] = 10 };            /* size 5 */
+    int grid[2][3] = { [1] = { [2] = 9 }, [0][1] = 4 };
+    printf("%s %s %s |", day[0], day[1], day[2]);
+    for (int i = 0; i < (int)(sizeof(sparse) / sizeof(sparse[0])); i++) printf(" %d", sparse[i]);
+    printf(" | %d %d %d\n", grid[0][1], grid[1][2], grid[1][0]);
     return 0;
 }

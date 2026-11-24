@@ -383,8 +383,9 @@ passed and returned by value.
 
 ### 4.3 Inheritance and virtual functions — tests 17, 29
 
-**Supported:** single inheritance with `public`, `protected` or `private` base
-access, multi-level chains, base-class constructor calls in initialiser lists, virtual functions,
+**Supported:** single inheritance for classes and structs with `public`, `protected`
+or `private` base access (default `private` for `class`, `public` for `struct`),
+multi-level chains, base-class constructor calls in initialiser lists, virtual functions,
 overriding, pure virtual functions and abstract classes, virtual destructors,
 explicit `Base::method()` calls, and polymorphism through pointers and references.
 Multiple and virtual inheritance are not supported (README 9.6).

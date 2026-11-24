@@ -213,7 +213,7 @@ static Node *func_node(NK kind, Node *params, Node *ctor_init, Node *body) {
 %type <str> string_seq
 %type <type> base_type builtin_only_type type_spec aggregate_spec cast_type sizeof_type lambda_return_opt
 %type <str> ident_opt assign_op
-%type <node> class_base_opt
+%type <node> class_base_opt class_base_opt_tail
 %type <decl> declarator paren_declarator
 %type <num> type_qualifiers_opt sign_spec pointer_opt ref_opt access_specifier
 %type <dims> array_suffix_opt
@@ -345,10 +345,18 @@ ident_opt
     | TYPE_NAME           { $$ = $1; }   /* tag declared earlier (`struct S;`) */
     ;
 
+/* the base after `struct Name :` */
+class_base_opt_tail
+    : access_specifier IDENTIFIER     { $$ = mk(NK::Access, $2); $$->access = $1; }
+    | access_specifier TYPE_NAME      { $$ = mk(NK::Access, $2); $$->access = $1; }
+    | TYPE_NAME                       { $$ = mk(NK::Access, $1); $$->access = -1; }
+    ;
+
 class_base_opt
     : /* empty */                           { $$ = nullptr; }
     | COLON access_specifier IDENTIFIER     { $$ = mk(NK::Access, $3); $$->access = $2; }
     | COLON access_specifier TYPE_NAME      { $$ = mk(NK::Access, $3); $$->access = $2; }
+    | COLON TYPE_NAME                       { $$ = mk(NK::Access, $2); $$->access = -1; }   /* default access */
     ;
 
 access_specifier
@@ -366,7 +374,17 @@ aggregate_spec
             $$->agg_def->type = $$;
             $$->agg_def->kids = $5->kids;
         }
-    | STRUCT_KW IDENTIFIER    { record_type($2, "STRUCT"); $$ = builtin(Base::Struct, "STRUCT"); $$->name = $2; }
+    | STRUCT_KW IDENTIFIER COLON { record_type($2, "STRUCT"); } class_base_opt_tail LBRACE member_list_opt RBRACE
+        {   /* struct D : B { ... } (C++): the base is public unless stated */
+            $$ = builtin(Base::Struct, "STRUCT");
+            $$->name = $2;
+            $$->agg_def = mk(NK::AggDef, $$->name);
+            $$->agg_def->type = $$;
+            $$->agg_def->str2 = $5->str;
+            $$->agg_def->access = $5->access < 0 ? 0 : $5->access;
+            $$->agg_def->kids = $7->kids;
+        }
+    | STRUCT_KW IDENTIFIER %prec TYPE_NAME { record_type($2, "STRUCT"); $$ = builtin(Base::Struct, "STRUCT"); $$->name = $2; }
     | STRUCT_KW TYPE_NAME     { $$ = builtin(Base::Struct, "STRUCT"); $$->name = $2; }
     | UNION_KW ident_opt { if ($2) record_type($2, "UNION"); } LBRACE member_list_opt RBRACE
         {
@@ -434,7 +452,7 @@ aggregate_spec
             $$->agg_def = mk(NK::AggDef, $2);
             $$->agg_def->type = $$;
             $$->agg_def->str2 = $3 ? $3->str : "";
-            $$->agg_def->access = $3 ? $3->access : 0;
+            $$->agg_def->access = $3 ? ($3->access < 0 ? 1 : $3->access) : 0;
             $$->agg_def->kids = $6->kids;
         }
     | CLASS_KW TYPE_NAME class_base_opt LBRACE member_list_opt RBRACE
@@ -444,7 +462,7 @@ aggregate_spec
             $$->agg_def = mk(NK::AggDef, $2);
             $$->agg_def->type = $$;
             $$->agg_def->str2 = $3 ? $3->str : "";
-            $$->agg_def->access = $3 ? $3->access : 0;
+            $$->agg_def->access = $3 ? ($3->access < 0 ? 1 : $3->access) : 0;
             $$->agg_def->kids = $5->kids;
         }
     ;

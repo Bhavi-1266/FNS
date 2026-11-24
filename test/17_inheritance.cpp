@@ -1,6 +1,7 @@
 // Feature: inheritance (single and multi-level), virtual functions and runtime
 // polymorphism through base pointers and references, pure virtual (abstract) classes,
-// overriding with calls to Base::method(), constructor/destructor order, virtual dtors.
+// overriding with calls to Base::method(), constructor/destructor order, virtual dtors,
+// struct bases (public by default) and class bases (private by default).
 #include <cstdio>
 
 class Shape {
@@ -64,6 +65,11 @@ double total_area(Shape **shapes, int n) {
 
 void show_ref(Shape &s) { s.describe(); }
 
+// struct bases are public by default, class bases private by default
+struct Point2 { int x = 1, y = 2; int sum() const { return x + y; } };
+struct Point3 : Point2 { int z = 3; int sum3() const { return sum() + z; } };
+class Hidden2 : Point2 { public: int total() const { return sum() * 10; } };
+
 int main() {
     Shape *shapes[3];
     shapes[0] = new Circle(1.0);
@@ -85,5 +91,8 @@ int main() {
     printf("%s %s\n", d.kind(), d.sound());
     Animal &ref = p;
     printf("through reference: %s\n", ref.sound());
+    Point3 p3;
+    Hidden2 h2;
+    printf("struct base: %d %d %d, class base: %d\n", p3.x, p3.sum(), p3.sum3(), h2.total());
     return 0;
 }

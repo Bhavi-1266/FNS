@@ -505,7 +505,7 @@ std::string CodeGen::load_bits(const Val &v) {
     int up = 32 - v.bit_offset - v.bit_width;
     std::string x = up ? emit_binop(unit, "<<", itos(up), int_type()) : unit;
     TypeSpec rt = int_type();
-    rt.is_unsigned = v.type.is_unsigned;
+    rt.is_unsigned = v.type.is_unsigned || v.type.base == Base::Bool;
     return emit_binop(x, ">>", itos(32 - v.bit_width), rt);
 }
 

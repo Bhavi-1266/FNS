@@ -76,9 +76,13 @@ sit at offset 0.
 | `&&`, `\|\|`, `?:` | short-circuit jumps into a temp |
 | Compound assignment, `++`/`--` | address computed once, then load, op, store |
 | `if`/`else`, `while`, `for`, `do-while`, `do-until` | labels and conditional jumps; `until` jumps back while the condition is false |
-| `switch` | compare chain `t = sw == v; if t goto Lcase` then labelled bodies; fallthrough preserved |
+| `switch` | compare chain `t = sw == v; if t goto Lcase` then labelled bodies; fallthrough preserved; the body is one scope |
 | `break`/`continue`/`goto`/labels | loop-label stack; user labels emitted verbatim |
 | Arrays (1-D, N-D) | row-major address arithmetic from the element size |
+| Variable-length arrays | `v__size = n * elem`; `t = call malloc, 1`; `v = t`; `param v` / `call free, 1` at block exit; `sizeof v` reads `v__size` |
+| Designated initialisers | the object is zeroed, then each designated element/member is stored at its offset |
+| Bit-fields | read: `t = *unit`, `t = t << (32 - pos - width)`, `t = t >> (32 - width)` (arithmetic for signed fields); write: load the unit, `& ~mask`, `\|` the shifted value, store |
+| Pointer to array `int (*p)[N]` | a pointer variable typed `int[N]*`; `p + i` is scaled by the row size |
 | Pointers, multi-level pointers | `&`/`*` chains |
 | References | hidden pointers: declaration stores an address, every use loads through it, callers pass `&x` |
 | `struct`/`union`/`enum`/`typedef` | field offsets; union offsets 0; enumerators are constants |
@@ -92,14 +96,16 @@ sit at offset 0.
 | Inheritance, `virtual` | vptr at offset 0; `vtable_X` in `.data`; a virtual call loads the vptr, loads the slot, then `call *t` |
 | Object construction `Circle c = Circle(2.5)` | constructed in place; other aggregate assignments use `copy` |
 | `new`/`delete` | `t = call __fns_new, 3` (count, element size, header: 0 for `new T`, 4 for `new T[n]`, which stores the count) — `malloc` that aborts like an uncaught `std::bad_alloc` on failure; constructors run for objects and each `new T[n]` element; `delete[]` destroys elements in reverse order |
-| Lambdas | emitted as `lambda_N`; captured variables become trailing parameters, copied (`[=]`) or taken by address (`[&]`) into hidden locals at the point of creation |
+| Lambdas | emitted as `lambda_N`; captured variables become trailing parameters, copied (`[=]`) or taken by address (`[&]`) into hidden locals at the point of creation; a `mutable` lambda's copies live in `lambda_N_cap_x_copy` and the lambda receives their address |
 | `argc`/`argv` | ordinary parameters of `main`; the back end stores spim's `$a0`/`$a1` into them |
 | Global initialisers | constants go into `.data`; non-constant initialisers and global constructors run in `__global_init`, called at the top of `main`; destructors of global objects run in `__global_fini`, which `main` registers as the first exit handler; the exit handlers run before each `return` of `main` (`call __fns_run_atexit`) and in `exit()` |
 | Block scoping | shadowed locals get unique IR names (`i`, `i_1`) |
 | Overloading | each overload gets its own IR name: `f`, `f__1`, `f__2`, …; methods `Class_m__1`; constructors `Class_Class__1` |
 | Default arguments | the call site appends the default expressions as ordinary `param`s |
-| Copy constructor | `T b = a;` and by-value arguments call `Class_Class__k(&dst, &src)` instead of `copy` |
-| Scope-exit destructors | `param &obj` / `call Class__dtor, 1` emitted at block end, `return`, `break`, `continue`, in reverse declaration order |
+| Copy / move constructor | `T b = a;` and by-value arguments call `Class_Class__k(&dst, &src)` instead of `copy`; `std::move(a)` selects the `T(T&&)` overload |
+| Rvalue references | like references (an address); a temporary bound to `T&&` is stored in a hidden local first |
+| `new` failure, `fseek` | library calls (`__fns_new`, `fseek`): the IR only shows the call |
+| Scope-exit destructors | `param &obj` / `call Class__dtor, 1` emitted at block end, `return`, `break`, `continue`, and before a `goto` for the blocks it leaves, in reverse declaration order |
 | Static locals with a non-literal initializer, static local objects | guarded by a hidden global `fn_name_var__guard`; initialised the first time control reaches the declaration; an object then registers its destructor with `call __fns_atexit, 2` |
 | Range `for` | hidden index loop `range_i` over the array address `range_base` |
 | `enum class` | scoped enumerators are integer constants, like plain enumerators |

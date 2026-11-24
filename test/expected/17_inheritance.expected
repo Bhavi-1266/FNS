@@ -15,4 +15,5 @@ animal says woof
 animal says yip
 dog woof
 through reference: yip
+struct base: 1 3 6, class base: 30
 ~Shape(square) 

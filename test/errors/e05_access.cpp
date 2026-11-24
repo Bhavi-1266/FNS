@@ -27,7 +27,11 @@ public:
     int bad() { return get(); }        // get() is private in Locked
 };
 
+class Plain : Account {};            // a class base is private by default
+
 int main() {
+    Plain pl;
+    pl.get();                          // get() is private in Plain
     Locked l;
     l.get();                           // public in Account, private through the private base
     Account *ap = &l;                  // inaccessible base

@@ -160,7 +160,6 @@ bool is_builtin_word(const std::string &w) {
 // Is `type` a scalar held in a single 4- or 8-byte slot (as opposed to an
 // array/struct buffer addressed only through its address)?
 bool is_scalar_type(const std::string &type) {
-    if (!type.empty() && type.back() == '*') return true;    // pointer (also to an array: int[4]*)
     if (type.find('[') != std::string::npos) return false;   // array
     if (has_indirection(type)) return true;                   // pointer / reference
     return is_builtin_word(base_word(type));
@@ -763,7 +762,10 @@ void Backend::load_operand(const std::string &tok, const std::string &reg) {
         return;
     }
     if (globals.count(t)) {
-        if (is_scalar_type(global_type[t]))
+        // a pointer to an array (`int[4]*`, 4 bytes) is a scalar; an array of pointers is bigger
+        // or is only ever used through its address
+        const std::string &gt = global_type[t];
+        if (is_scalar_type(gt) || (!gt.empty() && gt.back() == '*' && global_size[t] == 4))
             out << "    la " << reg << ", " << sym(t) << "\n    lw " << reg << ", 0(" << reg << ")\n";
         else if (heap_globals.count(t))
             out << "    la " << reg << ", " << sym(t) << "\n    lw " << reg << ", 0(" << reg << ")\n";

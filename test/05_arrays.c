@@ -1,6 +1,7 @@
 /* Feature: arrays of int and char: initialisation, partial init (zero fill), inferred size,
    passing to functions, searching/sorting, strings as char arrays, sizeof,
-   designated initializers ([i] = v, also inferring the size and indexing with enums). */
+   designated initializers ([i] = v, also inferring the size and indexing with enums),
+   variable-length arrays (size known only at run time, sizeof, passed to functions). */
 #include <stdio.h>
 
 int sum(int a[], int n) { int s = 0; for (int i = 0; i < n; i++) s += a[i]; return s; }
@@ -30,6 +31,12 @@ void reverse(char s[]) {
 
 int global_arr[5];
 char global_msg[] = "global";
+
+int vla_sum(int n, int v[n]) {                 /* the bound may name another parameter */
+    int s = 0;
+    for (int i = 0; i < n; i++) s += v[i];
+    return s;
+}
 
 int main() {
     int a[8] = {42, 7, 19, 3, 88, -5, 0, 19};
@@ -85,5 +92,15 @@ int main() {
     printf("%s %s %s |", day[0], day[1], day[2]);
     for (int i = 0; i < (int)(sizeof(sparse) / sizeof(sparse[0])); i++) printf(" %d", sparse[i]);
     printf(" | %d %d %d\n", grid[0][1], grid[1][2], grid[1][0]);
+    /* variable-length arrays: a new array each time the block runs */
+    for (int len = 2; len <= 6; len += 2) {
+        int squares[len];
+        for (int i = 0; i < len; i++) squares[i] = i * i;
+        printf("vla len %d: sizeof %d, sum %d\n", len, (int)sizeof(squares), vla_sum(len, squares));
+    }
+    int rows = 3;
+    char table[rows][4];
+    for (int i = 0; i < rows; i++) { table[i][0] = (char)('a' + i); table[i][1] = 0; }
+    printf("%s%s%s %d\n", table[0], table[1], table[2], (int)sizeof(table));
     return 0;
 }

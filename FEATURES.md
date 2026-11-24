@@ -174,13 +174,21 @@ L8:
 partial with zero fill, inferred size `int a[] = {…}`), designated initialisers
 (`{[3] = 30, 40, [1] = 10}`, `{[WED] = "wed"}`, `{[1][2] = 9}`), char arrays from string
 literals, arrays of strings, and arrays as function parameters. The size can be any
-constant expression (`int a[N * 2]`).
+constant expression (`int a[N * 2]`), and a local array's first size can be a run-time
+value: a variable-length array (`int v[n]`, `char t[rows][4]`).
 
 **How:** an array is one block in the frame (locals) or in `.data` (globals). The
 address of `a[i]` is `&a + i * sizeof(element)`. An array used as a value decays to
 a pointer to its first element. Local initialisers are emitted as stores, with the
 remaining elements zeroed. Global initialisers become `.word`/`.byte`/`.double`
 data directives.
+
+**Variable-length arrays.** `int v[n]` becomes a pointer local that receives
+`malloc(n * sizeof(int))` when the declaration runs, plus a hidden local `v__size`
+that `sizeof v` reads. The `free` is registered in the block's cleanup list (the same
+list as destructors), so it runs at the end of the block and on `break`, `continue`
+and `return`. The variable has the same type as an array parameter (a pointer to the
+first element or row), so indexing and row arithmetic are shared.
 
 ### 3.6 Pointers and multi-level pointers — tests 06, 33
 

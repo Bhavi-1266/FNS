@@ -12,3 +12,7 @@ Mon-ann Tue-bob Wed-cy
 bd
 fib[11]=89
 mon tue wed | 0 10 0 30 40 | 4 9 0
+vla len 2: sizeof 8, sum 1
+vla len 4: sizeof 16, sum 14
+vla len 6: sizeof 24, sum 55
+abc 12

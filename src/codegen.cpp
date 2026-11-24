@@ -927,7 +927,7 @@ void CodeGen::declare_function(Node *n, ClassInfo *cls) {
     bool sig_variadic = false;
     for (Node *p : n->kids[0]->kids) {
         if (p->kind == NK::Ellipsis) { sig_variadic = true; continue; }
-        TypeSpec pt = decay_param(resolve(*p->type));
+        TypeSpec pt = decay_param(resolve(open_first_dim(*p->type)));
         if (pt.base == Base::Void && pt.ptr == 0 && p->str.empty()) continue;
         sig.push_back(pt);
     }
@@ -977,7 +977,7 @@ void CodeGen::declare_function(Node *n, ClassInfo *cls) {
         else fi->ret.base = Base::Void;
         for (Node *p : n->kids[0]->kids) {
             if (p->kind == NK::Ellipsis) { fi->variadic = true; continue; }
-            TypeSpec pt = decay_param(resolve(*p->type));
+            TypeSpec pt = decay_param(resolve(open_first_dim(*p->type)));
             if (pt.base == Base::Void && pt.ptr == 0 && p->str.empty()) continue;
             fi->params.push_back(pt);
             fi->pnames.push_back(p->str.empty() ? "arg" + itos(fi->pnames.size()) : p->str);
@@ -1051,7 +1051,7 @@ void CodeGen::declare_function(Node *n, ClassInfo *cls) {
         bool def_variadic = false;
         for (Node *p : n->kids[0]->kids) {
             if (p->kind == NK::Ellipsis) { def_variadic = true; continue; }
-            TypeSpec pt = decay_param(resolve(*p->type));
+            TypeSpec pt = decay_param(resolve(open_first_dim(*p->type)));
             if (pt.base == Base::Void && pt.ptr == 0 && p->str.empty()) continue;
             def_params.push_back(pt);
             def_names.push_back(p->str.empty() ? "arg" + itos(def_names.size()) : p->str);
@@ -1483,6 +1483,11 @@ void CodeGen::gen_stmt_inner(Node *n) {
 // Comment: >30 lines because each declaration kind needs its own handling.
 void CodeGen::gen_local_decl(Node *n) {
     if (n->line > 0) cur_line_ = n->line;
+    if (!(n->flags & F_STATIC) && !n->type->dims.empty() && n->type->dims[0] <= DIM_EXPR_BASE && !n->type->ref) {
+        Node *bound = g_dim_exprs[(size_t)(DIM_EXPR_BASE - n->type->dims[0])];
+        long cv = 0;
+        if (!eval_const_int(bound, cv)) { gen_vla(n, bound); return; }
+    }
     TypeSpec t = resolve(*n->type);
     Node *init = n->kids.empty() ? nullptr : n->kids[0];
 
@@ -1565,6 +1570,27 @@ void CodeGen::gen_local_decl(Node *n) {
     TypeSpec et = is_array(t) ? resolve(elem_type(t)) : t;
     ClassInfo *ec = (is_array(t) && t.dims.size() == 1 && t.dims[0] > 0 && is_aggregate(et)) ? class_of(et) : nullptr;
     if (ec && ec->dtor) scopes_.back().dtors.push_back({s.irname + "[" + itos(t.dims[0]) + "]", ec});
+}
+
+// A variable-length array `T a[n]...` (only the first bound may vary): a pointer to
+// storage from malloc, freed when the scope ends; sizeof reads a hidden size local.
+void CodeGen::gen_vla(Node *n, Node *bound) {
+    TypeSpec t = resolve(open_first_dim(*n->type));
+    t.decayed = true;
+    if (!n->kids.empty()) error(n->line, "a variable-length array cannot be initialized");
+    Val cnt = gen_expr(bound);
+    if (!is_integer(cnt.type) || cnt.type.ptr || !cnt.type.dims.empty())
+        error(n->line, "array size must have an integer type");
+    std::string count = convert(rvalue(cnt), cnt.type, int_type());
+    std::string bytes = emit_binop(count, "*", itos(size_of(elem_type(t))), int_type());
+    Symbol &s = declare(n->str, t);
+    s.vla_size = unique_local(n->str + "__size");
+    cur_->locals.push_back(s.vla_size + " : int (4)");
+    cur_->locals.push_back(s.irname + " : " + type_str(t) + " (4)");
+    emit(s.vla_size + " = " + bytes, "int");
+    Val mem = emit_call(external("malloc"), "malloc", {bytes}, false);
+    emit(s.irname + " = " + mem.place, type_str(t));
+    scopes_.back().dtors.push_back({s.irname, nullptr});
 }
 
 // Is the expression a named object (variable, member, element, dereference)?
@@ -1661,6 +1687,10 @@ void CodeGen::emit_scope_dtors(size_t depth, const std::string &keep) {
                 std::string a = new_temp();
                 emit(a + " = &" + name, "ptr");
                 for_each_element(a, it->second, count, true);
+                continue;
+            }
+            if (!it->second) {                              // a variable-length array's storage
+                emit_call(external("free"), "free", {it->first}, false);
                 continue;
             }
             TypeSpec ot;
@@ -2746,6 +2776,13 @@ Val CodeGen::gen_expr(Node *n) {
                 t.name = n->kids[0]->str;
                 t = resolve(t);
             } else {
+                Symbol *vs = n->kids[0]->kind == NK::Ident ? lookup(n->kids[0]->str) : nullptr;
+                if (vs && !vs->vla_size.empty()) {      // sizeof a variable-length array: run time
+                    v.k = Val::Var;
+                    v.place = vs->vla_size;
+                    v.type = int_type();
+                    return v;
+                }
                 t = type_of_expr(n->kids[0]);
             }
             v.k = Val::RVal;
@@ -3932,6 +3969,13 @@ Val CodeGen::gen_delete(Node *n) {
     return out;
 }
 
+// An array parameter's first bound is ignored (it decays to a pointer), so it may be
+// any expression, e.g. another parameter: void f(int n, int a[n]).
+TypeSpec CodeGen::open_first_dim(TypeSpec t) {
+    if (!t.dims.empty() && !t.ref) t.dims[0] = -1;
+    return t;
+}
+
 TypeSpec CodeGen::decay_param(const TypeSpec &t) {
     if (!is_array(t) || t.ref) return t;
     TypeSpec d = t;
@@ -4045,7 +4089,7 @@ Val CodeGen::gen_lambda(Node *n) {
     else { fi->ret = int_type(); fi->deduce_ret = true; }   // deduced from the body's return
     for (Node *p : n->kids[0]->kids) {
         if (p->kind == NK::Ellipsis) { fi->variadic = true; continue; }
-        TypeSpec pt = decay_param(resolve(*p->type));
+        TypeSpec pt = decay_param(resolve(open_first_dim(*p->type)));
         if (pt.base == Base::Void && pt.ptr == 0 && p->str.empty()) continue;
         fi->params.push_back(pt);
         fi->pnames.push_back(p->str);

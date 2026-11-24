@@ -160,6 +160,7 @@ bool is_builtin_word(const std::string &w) {
 // Is `type` a scalar held in a single 4- or 8-byte slot (as opposed to an
 // array/struct buffer addressed only through its address)?
 bool is_scalar_type(const std::string &type) {
+    if (!type.empty() && type.back() == '*') return true;    // pointer (also to an array: int[4]*)
     if (type.find('[') != std::string::npos) return false;   // array
     if (has_indirection(type)) return true;                   // pointer / reference
     return is_builtin_word(base_word(type));

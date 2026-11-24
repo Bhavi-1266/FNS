@@ -316,8 +316,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 |---|---|---|
 | Array bounds | Must be integer constant expressions: literals, enumerators, macros, `const int` variables with constant initializers, `sizeof`, arithmetic on these. No variable-length arrays. | C99 VLAs |
 | Initialisers | Nested, flat (brace elision), partial and trailing-comma lists; strings for char arrays; `T x(args)`, `T x{args}`. **Designated initialisers** (`{[2] = 5}`, `{.x = 1}`) and compound literals are not supported; braces are only allowed in declarations (`x = {1,2}` is an error). | supported |
-| Pointer-to-array declarators | `int (*p)[3]` is not supported (but `*(*(a + i) + j)` on a 2-D array works) | supported |
-| Functions returning function pointers, pointers to function pointers | `int (*f(void))(int)` and `int (**pp)(int)` are not supported; use a typedef (`typedef int (*op)(int); op *pp;`). | supported |
+| Parenthesised declarators | `int (*p)[3]` (pointer to an array, also as a parameter or typedef), `int (**pp)(int)`, `int (*ops[4])(int)`, and functions returning function pointers `int (*pick(char c))(int, int)` are supported. Declarators nested more than one level of parentheses (`int (*(*f)(int))[3]`, `int (*(*pf))(int)`) and pointers to pointers to arrays (`int (**p)[3]`) are not: use a typedef. | supported |
 | Old-style (K&R) definitions | not supported | C89 |
 | Prototypes | optional (all signatures are collected first) | required before use |
 | Global initialisers | constants are placed in `.data`; any other initializer (including global objects with constructors) runs at the start of `main`, in source order | static initialisation |

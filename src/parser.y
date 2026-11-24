@@ -105,6 +105,26 @@ static TypeSpec *fnptr_type(TypeSpec *ret, Node *params, const std::vector<int> 
     return t;
 }
 
+/* `T (*name[dims])(params)`, `T (**name)(params)`: (arrays of) pointers to functions. */
+static TypeSpec *fnptr_decl(TypeSpec *ret, const Declarator *d, Node *params) {
+    TypeSpec *t = fnptr_type(ret, params, &d->dims);
+    t->ptr = d->ptr;
+    return t;
+}
+
+/* `T (*name)` is a plain pointer; `T (*name)[N]...` a pointer to an array, stored like
+   an array parameter (`decayed`: a pointer to the first row). */
+static TypeSpec *paren_decl_type(TypeSpec *base, const Declarator *d, const std::vector<int> *dims) {
+    if (dims->empty()) return with_decl(base, d->ptr, false, &d->dims);
+    if (d->ptr != 1 || !d->dims.empty())
+        fns::DeclTable::instance().record_error(yylineno, "only a single pointer to an array, (*name)[N], is supported");
+    TypeSpec *t = with_decl(base, 0, false, nullptr);
+    t->dims.push_back(-1);
+    t->dims.insert(t->dims.end(), dims->begin(), dims->end());
+    t->decayed = true;
+    return t;
+}
+
 static Node *var_decl(const std::string &name, TypeSpec *type, Node *init) {
     Node *n = mk(NK::VarDecl, name);
     n->type = type;
@@ -193,13 +213,13 @@ static Node *func_node(NK kind, Node *params, Node *ctor_init, Node *body) {
 %type <type> base_type builtin_only_type type_spec aggregate_spec cast_type sizeof_type lambda_return_opt
 %type <str> ident_opt assign_op
 %type <node> class_base_opt
-%type <decl> declarator
+%type <decl> declarator paren_declarator
 %type <num> type_qualifiers_opt sign_spec pointer_opt ref_opt access_specifier
 %type <dims> array_suffix_opt
 %type <node> top_level_list top_level_item toplevel_decl toplevel_decl_tail typedef_decl
 %type <node> member member_list member_list_opt enumerator_list
 %type <node> init_declarator init_declarator_list initializer brace_init init_list_opt init_list
-%type <node> simple_decl declaration_stmt more_declarators_opt
+%type <node> simple_decl simple_paren_decl fnptr_function_head declaration_stmt more_declarators_opt
 %type <node> param param_list param_list_opt ctor_init_opt ctor_init_list ctor_init_item
 %type <node> constructor_def destructor_def
 %type <node> stmt compound_stmt stmt_list stmt_list_opt expr_stmt if_stmt for_init_opt expr_opt
@@ -262,11 +282,17 @@ typedef_decl
             $$->type = with_decl($2, $3, false, $5);
             if ($2->agg_def) { Node *l = mk(NK::DeclList); l->kids = { $2->agg_def, $$ }; $$ = l; }
         }
-    | TYPEDEF_KW type_spec LPAREN STAR IDENTIFIER array_suffix_opt RPAREN LPAREN param_list_opt RPAREN SEMI
+    | TYPEDEF_KW type_spec paren_declarator LPAREN param_list_opt RPAREN SEMI
         {
-            record_type($5, "TYPEDEF");
-            $$ = mk(NK::Typedef, $5);
-            $$->type = fnptr_type($2, $9, $6);
+            record_type($3->name.c_str(), "TYPEDEF");
+            $$ = mk(NK::Typedef, $3->name);
+            $$->type = fnptr_decl($2, $3, $5);
+        }
+    | TYPEDEF_KW type_spec paren_declarator array_suffix_opt SEMI
+        {
+            record_type($3->name.c_str(), "TYPEDEF");
+            $$ = mk(NK::Typedef, $3->name);
+            $$->type = paren_decl_type($2, $3, $4);
         }
     ;
 
@@ -488,6 +514,12 @@ declarator
         { $$ = new Declarator; $$->name = $3; $$->ptr = $1; $$->ref = $2 != 0; $$->dims = *$4; }
     ;
 
+/* the parenthesised part of `int (*f)(int)`, `int (**pp)(int)`, `int (*ops[4])(int)`, `int (*rows)[3]` */
+paren_declarator
+    : LPAREN STAR pointer_opt IDENTIFIER array_suffix_opt RPAREN
+        { $$ = new Declarator; $$->name = $4; $$->ptr = 1 + $3; $$->dims = *$5; }
+    ;
+
 init_declarator
     : declarator
         {
@@ -552,10 +584,19 @@ simple_decl
             }
             if ($1->agg_def) $$->kids.insert($$->kids.begin(), $1->agg_def);
         }
-    | type_spec LPAREN STAR IDENTIFIER array_suffix_opt RPAREN LPAREN param_list_opt RPAREN
-        { record($4, $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($4, fnptr_type($1, $8, $5), nullptr)); }
-    | type_spec LPAREN STAR IDENTIFIER array_suffix_opt RPAREN LPAREN param_list_opt RPAREN ASSIGN initializer
-        { record($4, $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($4, fnptr_type($1, $8, $5), $11)); }
+    | simple_paren_decl        { $$ = $1; }
+    ;
+
+/* declarations with a parenthesised declarator (function pointers, pointers to arrays) */
+simple_paren_decl
+    : type_spec paren_declarator LPAREN param_list_opt RPAREN
+        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($2->name, fnptr_decl($1, $2, $4), nullptr)); }
+    | type_spec paren_declarator LPAREN param_list_opt RPAREN ASSIGN initializer
+        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($2->name, fnptr_decl($1, $2, $4), $7)); }
+    | type_spec paren_declarator array_suffix_opt
+        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($2->name, paren_decl_type($1, $2, $3), nullptr)); }
+    | type_spec paren_declarator array_suffix_opt ASSIGN initializer
+        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($2->name, paren_decl_type($1, $2, $3), $5)); }
     ;
 
 declaration_stmt
@@ -586,8 +627,10 @@ param
         { $$ = mk(NK::Param); $$->type = with_decl($1, 1 + $2, false, nullptr); }
     | type_spec pointer_opt STAR CONST_KW
         { $$ = mk(NK::Param); $$->type = with_decl($1, 1 + $2, false, nullptr); }
-    | type_spec LPAREN STAR IDENTIFIER array_suffix_opt RPAREN LPAREN param_list_opt RPAREN
-        { record($4, $1->kind_str.c_str()); $$ = mk(NK::Param, $4); $$->type = fnptr_type($1, $8, $5); }
+    | type_spec paren_declarator LPAREN param_list_opt RPAREN
+        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = mk(NK::Param, $2->name); $$->type = fnptr_decl($1, $2, $4); }
+    | type_spec paren_declarator array_suffix_opt
+        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = mk(NK::Param, $2->name); $$->type = paren_decl_type($1, $2, $3); }
     | ELLIPSIS
         { $$ = mk(NK::Ellipsis); }
     ;
@@ -647,10 +690,24 @@ toplevel_decl
         { $$ = out_of_class($4, func_node(NK::FuncDef, $6, nullptr, $9), with_decl($1, 1 + $3, false, nullptr)); }
     | type_spec BITAND SCOPED_NAME LPAREN param_list_opt RPAREN trailing_qualifiers_opt compound_stmt
         { $$ = out_of_class($3, func_node(NK::FuncDef, $5, nullptr, $8), with_decl($1, 0, true, nullptr)); }
-    | type_spec LPAREN STAR IDENTIFIER array_suffix_opt RPAREN LPAREN param_list_opt RPAREN SEMI
-        { record($4, $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($4, fnptr_type($1, $8, $5), nullptr)); }
-    | type_spec LPAREN STAR IDENTIFIER array_suffix_opt RPAREN LPAREN param_list_opt RPAREN ASSIGN initializer SEMI
-        { record($4, $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($4, fnptr_type($1, $8, $5), $11)); }
+    | simple_paren_decl SEMI   { $$ = $1; }
+    | fnptr_function_head SEMI
+        { $$ = $1; $$->kind = NK::FuncDecl; }
+    | fnptr_function_head compound_stmt
+        { $$ = $1; $$->kind = NK::FuncDef; $$->kids[2] = $2; }
+    ;
+
+/* a function returning a function pointer: int (*pick(int k))(int, int) */
+fnptr_function_head
+    : type_spec LPAREN STAR pointer_opt IDENTIFIER LPAREN param_list_opt RPAREN RPAREN LPAREN param_list_opt RPAREN
+        {
+            record($5, "PROCEDURE");
+            $$ = func_node(NK::FuncDecl, $7, nullptr, nullptr);
+            $$->str = $5;
+            $$->type = fnptr_type($1, $11);
+            $$->type->ptr += $4;
+            if ($1->is_static) $$->flags |= fns::F_STATIC;
+        }
     ;
 
 toplevel_decl_tail

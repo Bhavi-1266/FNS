@@ -120,7 +120,7 @@ TypeSpec CodeGen::resolve(const TypeSpec &in) {
     return t;
 }
 
-bool CodeGen::is_pointer(const TypeSpec &t) const { return t.dims.empty() && t.ptr > 0; }
+bool CodeGen::is_pointer(const TypeSpec &t) const { return (t.dims.empty() && t.ptr > 0) || t.decayed; }
 bool CodeGen::is_array(const TypeSpec &t) const { return !t.dims.empty(); }
 
 bool CodeGen::is_float(const TypeSpec &t) const {
@@ -1081,12 +1081,12 @@ void CodeGen::declare_global_var(Node *n, const std::string &prefix, bool regist
     if (reserved_ir_name(irname)) irname += "_v";
     Node *init = n->kids.empty() ? nullptr : n->kids[0];
 
-    if (!t.dims.empty() && t.dims[0] < 0 && init) {
+    if (!t.dims.empty() && t.dims[0] < 0 && !t.decayed && init) {
         if (init->kind == NK::InitList) t.dims[0] = inferred_bound(t, init);
         else if (init->kind == NK::StrLit && t.base == Base::Char)
             t.dims[0] = static_cast<int>(string_literal_size(init->str));
     }
-    if (!t.dims.empty() && t.dims[0] < 0)
+    if (!t.dims.empty() && t.dims[0] < 0 && !t.decayed)
         error(n->line, "array bound cannot be inferred from this initializer");
 
     if (t.base == Base::Auto && init) t = type_of_expr(init);
@@ -1535,12 +1535,12 @@ void CodeGen::gen_local_decl(Node *n) {
         t.ref = false;
     }
 
-    if (!t.dims.empty() && t.dims[0] < 0 && init) {
+    if (!t.dims.empty() && t.dims[0] < 0 && !t.decayed && init) {
         if (init->kind == NK::InitList) t.dims[0] = inferred_bound(t, init);
         else if (init->kind == NK::StrLit && t.base == Base::Char)
             t.dims[0] = static_cast<int>(string_literal_size(init->str));
     }
-    if (!t.dims.empty() && t.dims[0] < 0) {
+    if (!t.dims.empty() && t.dims[0] < 0 && !t.decayed) {
         error(n->line, "array bound cannot be inferred from this initializer");
         return;
     }
@@ -1806,7 +1806,7 @@ void CodeGen::gen_var_init(const Symbol &sym, const TypeSpec &t, Node *init) {
     if (ci) adopt_temp(v);
     if (t.base == Base::Func && v.k == Val::Lambda && v.lam && !v.lam->caps.empty())
         error(init->line, "capturing lambda cannot convert to a function pointer");
-    if (is_array(t)) {
+    if (is_array(t) && !t.decayed) {
         error(init->line, "array must be initialized with a brace-enclosed list or string literal");
         return;
     }
@@ -2746,8 +2746,17 @@ Val CodeGen::gen_binary(Node *n) {
             if (t.dims.size() >= 2) { row = elem_type(t); return true; }
             return false;
         };
-        TypeSpec row;
+        TypeSpec row, row2;
         bool left_row = row_of(l, row);
+        bool row_cmp = op == "==" || op == "!=" || op == "<" || op == ">" || op == "<=" || op == ">=";
+        if (left_row && (row_cmp || op == "-") && row_of(r, row2)) {
+            // two row pointers: compare the addresses, or count the rows between them
+            std::string a = l.row_ptr ? l.place : addr_of(l), b = r.row_ptr ? r.place : addr_of(r);
+            out.place = emit_binop(a, op, b, int_type());
+            if (op == "-") out.place = emit_binop(out.place, "/", itos(size_of(row)), int_type());
+            out.type = int_type();
+            return out;
+        }
         bool right_row = !left_row && op == "+" && row_of(r, row);
         TypeSpec other = left_row ? rt : lt;
         if ((left_row || right_row) && (op == "+" || op == "-") && other.ptr == 0 && other.dims.empty() &&
@@ -2761,8 +2770,8 @@ Val CodeGen::gen_binary(Node *n) {
             return out;
         }
     }
-    if (is_array(lt)) lt = pointer_to(lt);
-    if (is_array(rt)) rt = pointer_to(rt);
+    if (is_array(lt) && !lt.decayed) lt = pointer_to(lt);
+    if (is_array(rt) && !rt.decayed) rt = pointer_to(rt);
 
     bool cmp = op == "==" || op == "!=" || op == "<" || op == ">" || op == "<=" || op == ">=";
     bool lp = is_pointer(lt), rp = is_pointer(rt);
@@ -3047,7 +3056,7 @@ Val CodeGen::gen_assign(Node *n) {
     out.type = lt;
 
     if (op == "=") {
-        if (is_array(lt)) {
+        if (is_array(lt) && !lt.decayed) {
             error(n->line, "cannot assign to an array");
             return lhs;
         }
@@ -3079,7 +3088,7 @@ Val CodeGen::gen_assign(Node *n) {
         return out;
     }
 
-    if (is_array(lt)) {
+    if (is_array(lt) && !lt.decayed) {
         error(n->line, "cannot assign to an array");
         return lhs;
     }

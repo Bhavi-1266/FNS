@@ -185,8 +185,9 @@ data directives.
 
 **Supported:** `&`, `*`, pointer arithmetic and comparison, `void*`, `NULL`,
 pointers to structs (`->`), `int**`, `int***`, pointer-to-pointer function
-parameters, jagged arrays built with `malloc`, and row pointers into
-multi-dimensional arrays: `*(*(a + i) + j)`.
+parameters, jagged arrays built with `malloc`, row pointers into
+multi-dimensional arrays: `*(*(a + i) + j)`, and pointer-to-array variables
+`int (*p)[4] = m;` (`p++` moves one row, `p[i][j]`, `last - p` counts rows).
 
 **How:** every type is a chain of levels (`int**` = pointer → pointer → int). `&x`
 emits `t = &x`, `*p` emits `t = *p` (a load) or `*p = v` (a store), and each extra
@@ -513,7 +514,16 @@ endfunction
 **Supported:** declaring `int (*fp)(int, int)`, assigning functions with or without
 `&`, calling with `fp(a)` or `(*fp)(a)`, typedef'd function-pointer types, arrays of
 function pointers (dispatch tables), passing them as callbacks (including `qsort`
-comparators), and returning them from functions.
+comparators), returning them from functions (with a typedef or written out:
+`int (*pick(char op))(int, int)`), and pointers to function pointers `int (**pp)(int, int)`.
+
+**Parenthesised declarators.** The grammar has one rule for the parenthesised part
+`( * … * name [dims] )` (`paren_declarator` in `parser.y`). Followed by a parameter
+list it declares a function pointer (with as many extra pointer levels as stars, or an
+array of them); followed by `[N]` it declares a pointer to an array, which uses the same
+representation as an array parameter `int a[][N]` (a pointer to the first row), so all
+row arithmetic is shared. A separate rule handles a function whose return type is a
+function pointer.
 
 **How:** a function name used as a value is the address of its label. A call
 through a pointer becomes an indirect call `t = call *fp, n`, which the back end

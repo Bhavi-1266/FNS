@@ -3,3 +3,5 @@
 7 11 4
 4 6
 2 44 48 8 hello 2
+pointer to array: 5 7 8 10 rows apart=1 size=16
+row sums: 66 60

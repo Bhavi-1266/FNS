@@ -9,3 +9,5 @@ sum=27 product=1890 max=9
 4.50
 8 4 12
 none is null
+raw: 5 5 twice: -5
+through pp: 42

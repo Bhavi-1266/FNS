@@ -1,5 +1,6 @@
 /* Feature: function pointers: declaration, typedef, arrays of them, callbacks,
-   returning results through them, qsort comparators. */
+   returning results through them, qsort comparators, pointers to function pointers,
+   functions returning function pointers written without a typedef. */
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -25,6 +26,10 @@ int cmp_desc(const void *p, const void *q) { return *(const int *)q - *(const in
 
 double apply_d(double (*g)(double), double v) { return g(v); }
 double half(double v) { return v / 2; }
+
+/* the same without a typedef: a function returning `int (*)(int, int)` */
+int (*choose_raw(char op))(int, int) { return op == '+' ? add : sub; }
+int twice(int (**pp)(int, int), int x) { return (*pp)((*pp)(x, x), x); }   /* pointer to a function pointer */
 
 binop choose(char op) {
     switch (op) {
@@ -63,5 +68,10 @@ int main() {
     printf("%d %d %d\n", choose('+')(6, 2), choose('-')(6, 2), choose('*')(6, 2));
     binop none = NULL;
     printf("none is %s\n", none == NULL ? "null" : "set");
+    int (*raw)(int, int) = choose_raw('-');
+    int (**pp)(int, int) = &raw;
+    printf("raw: %d %d twice: %d\n", raw(9, 4), choose_raw('+')(2, 3), twice(pp, 5));
+    *pp = mul;                                  /* changes raw through the pointer */
+    printf("through pp: %d\n", raw(6, 7));
     return 0;
 }

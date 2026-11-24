@@ -92,6 +92,23 @@ int main() {
     printf("append starts at %ld\n", end);
     fclose(ra);
 
+    /* A write-only stream can seek; seeking beyond EOF pads with zero bytes on write. */
+    FILE *wo = fopen("fns_test_write_seek.txt", "w");
+    fputs("abcd", wo);
+    int write_seek = fseek(wo, 1, SEEK_SET);
+    fputc('X', wo);
+    int beyond_seek = fseek(wo, 6, SEEK_SET);
+    long beyond_pos = ftell(wo);
+    fputc('Z', wo);
+    printf("write-only seek: %d beyond: %d at: %ld end: %ld\n",
+           write_seek, beyond_seek, beyond_pos, ftell(wo));
+    fclose(wo);
+    wo = fopen("fns_test_write_seek.txt", "r");
+    printf("write-seek bytes:");
+    for (int i = 0; i < 7; i++) printf(" %d", fgetc(wo));
+    printf("\n");
+    fclose(wo);
+
     FILE *missing = fopen("no_such_dir/none.txt", "r");
     printf("missing file -> %s\n", missing == NULL ? "NULL" : "opened");
     fprintf(stdout, "written to stdout via fprintf\n");

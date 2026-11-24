@@ -11,6 +11,8 @@
 //   * strength reduction    t = i * 8            ->  t = i << 3
 //                           unsigned u / 4, u % 4 -> u >> 2, u & 3
 //                           x * 1, x * 0, x + 0, x / 1, x % 1  ->  x, 0, x, x, 0
+//   * local CSE / dead stores  repeated integer expressions are reused and
+//                              overwritten local assignments are removed
 //   * jump clean-up         goto L1 ... L1: goto L2  ->  goto L2
 //                           goto L; L:            ->  L:
 //                           ifFalse c goto L1; goto L2; L1:  ->  if c goto L2
@@ -116,6 +118,8 @@ bool is_cmp(const std::string &op) {
     return op == "==" || op == "!=" || op == "<" || op == ">" || op == "<=" || op == ">=";
 }
 
+bool is_jump(const std::vector<std::string> &w);
+
 // 32-bit evaluation of `a op b`, as the MIPS back end computes it.
 bool fold_binary(const std::string &op, int32_t a, int32_t b, bool uns, int32_t &r) {
     uint32_t ua = (uint32_t)a, ub = (uint32_t)b;
@@ -165,6 +169,8 @@ private:
                     const std::map<std::string, std::string> &val, bool param_ok);
     bool fold(std::vector<std::string> &w, const std::string &note, bool &drop);
     bool reduce(std::vector<std::string> &w, const std::string &note);
+    bool common_subexpressions();
+    bool dead_stores();
     std::map<size_t, std::map<std::string, std::string>> label_constants() const;
     bool forward();
     bool jumps();
@@ -303,17 +309,26 @@ bool FuncOpt::fold(std::vector<std::string> &w, const std::string &note, bool &d
 // Signed division rounds toward zero, so it stays a `div`.
 // Comment: >30 lines because each operator has its own replacement rule.
 bool FuncOpt::reduce(std::vector<std::string> &w, const std::string &note) {
-    static const std::set<std::string> ops = {"+", "-", "*", "/", "%"};
+    static const std::set<std::string> ops = {
+        "+", "-", "*", "/", "%", "&", "|", "^", "<<", ">>"
+    };
     if (w.size() != 5 || !is_def(w) || !word_int(note) || !ops.count(w[3])) return false;
     std::string a = w[2], op = w[3], b = w[4];
-    if (is_lit(a) == is_lit(b)) return false;           // folded, or no constant
+    if (a == b && !is_lit(a) && tracked(a) && word_int(type_of(a)) &&
+        (op == "-" || op == "^")) {
+        w = {w[0], "=", "0"};
+        ++st_.reduced;
+        return true;
+    }
+    if (is_lit(a) && is_lit(b)) return false;           // folded, or no constant
     if (is_lit(a)) {
-        if (op != "*" && op != "+") return false;
+        if (op != "*" && op != "+" && op != "&" && op != "|" && op != "^" &&
+            op != "==" && op != "!=") return false;
         std::swap(a, b);                                // constant on the right
     }
     std::string ta = type_of(a);
     if (ta.empty() || ta == "?" || fp_type(ta) || ta.find('[') != std::string::npos) return false;
-    if (!fits32(b)) return false;
+    if (!tracked(a) || !word_int(ta) || !is_lit(b) || !fits32(b)) return false;
     uint32_t k = (uint32_t)lit(b);
     bool uns = note.find("unsigned") != std::string::npos;
     bool pow2 = k != 0 && (k & (k - 1)) == 0;
@@ -321,6 +336,10 @@ bool FuncOpt::reduce(std::vector<std::string> &w, const std::string &note) {
     while (pow2 && (1u << log2) != k) ++log2;
     std::vector<std::string> r;
     if ((op == "+" || op == "-") && k == 0) r = {a};
+    else if ((op == "|" || op == "^" || op == "<<" || op == ">>") && k == 0) r = {a};
+    else if (op == "&" && k == 0) r = {"0"};
+    else if (op == "&" && k == UINT32_MAX) r = {a};
+    else if (op == "|" && k == UINT32_MAX) r = {"-1"};
     else if (op == "*" && k == 0) r = {"0"};
     else if (op == "*" && k == 1) r = {a};
     else if (op == "*" && pow2) r = {a, "<<", std::to_string(log2)};
@@ -332,6 +351,150 @@ bool FuncOpt::reduce(std::vector<std::string> &w, const std::string &note) {
     w.resize(2);
     w.insert(w.end(), r.begin(), r.end());
     ++st_.reduced;
+    return true;
+}
+
+// Reuse pure integer expressions only inside one basic block.
+bool FuncOpt::common_subexpressions() {
+    struct Expression {
+        std::string key, left, right, result;
+    };
+    static const std::set<std::string> ops = {
+        "+", "-", "*", "&", "|", "^", "==", "!=", "<", ">", "<=", ">="
+    };
+    std::vector<Expression> available;
+    std::vector<Instr> out;
+    bool changed = false;
+    for (const Instr &in : f_.code) {
+        if (is_label(in)) {
+            available.clear();
+            out.push_back(in);
+            continue;
+        }
+        std::vector<std::string> w = words(in.text);
+        if (w.empty()) { out.push_back(in); continue; }
+        if (!is_def(w)) {
+            available.clear();
+            out.push_back(in);
+            continue;
+        }
+
+        const std::string dst = w[0];
+        bool eligible = w.size() == 5 && word_int(in.note) && ops.count(w[3]);
+        std::string left, right, key, previous;
+        if (eligible) {
+            left = w[2];
+            right = w[4];
+            auto safe = [&](const std::string &v) {
+                return is_lit(v) || (tracked(v) && word_int(type_of(v)));
+            };
+            eligible = safe(left) && safe(right);
+        }
+        if (eligible) {
+            bool commutative = w[3] == "+" || w[3] == "*" || w[3] == "&" ||
+                               w[3] == "|" || w[3] == "^" || w[3] == "==" || w[3] == "!=";
+            if (commutative && right < left) std::swap(left, right);
+            key = in.note + "|" + type_of(left) + "|" + w[3] + "|" +
+                  type_of(right) + "|" + left + "|" + right;
+            for (const Expression &e : available)
+                if (e.key == key) { previous = e.result; break; }
+        }
+
+        if (!previous.empty()) {
+            out.push_back({dst + " = " + previous, in.note});
+            ++st_.common;
+            changed = true;
+        } else {
+            out.push_back(in);
+        }
+        for (auto it = available.begin(); it != available.end();) {
+            if (it->result == dst || it->left == dst || it->right == dst)
+                it = available.erase(it);
+            else
+                ++it;
+        }
+        if (eligible && dst != left && dst != right)
+            available.push_back({key, left, right, dst});
+        if (w.size() >= 3 && w[2] == "call") available.clear();
+    }
+    f_.code.swap(out);
+    return changed;
+}
+
+// Remove overwritten scalar assignments in straight-line code. Calls,
+// branches, memory operations and unknown instructions end the local window.
+bool FuncOpt::dead_stores() {
+    std::vector<bool> remove(f_.code.size(), false);
+    std::map<std::string, size_t> pending;
+    int removed_here = 0;
+    auto reads = [&](const std::vector<std::string> &w) {
+        std::set<std::string> names;
+        size_t first = 0, last = w.size();
+        if (is_def(w)) first = 2;
+        else if ((w[0] == "if" || w[0] == "ifFalse") && w.size() == 4) last = 2;
+        else if ((w[0] == "param" || w[0] == "return") && w.size() > 1)
+            first = 1, last = 2;
+        else return names;
+        for (size_t i = first; i < last; ++i) {
+            std::string name = bare(w[i]);
+            if (tracked(name) && word_int(type_of(name))) names.insert(name);
+        }
+        return names;
+    };
+    auto candidate = [&](const std::vector<std::string> &w, const std::string &note) {
+        if (!is_def(w) || is_temp(w[0]) || !tracked(w[0]) ||
+            !word_int(type_of(w[0])) || !word_int(note)) return false;
+        if (w.size() == 3)
+            return is_lit(w[2]) || (tracked(w[2]) && word_int(type_of(w[2])));
+        static const std::set<std::string> pure = {
+            "+", "-", "*", "&", "|", "^", "<<", ">>"
+        };
+        if (w.size() != 5 || !pure.count(w[3])) return false;
+        auto safe = [&](const std::string &v) {
+            return is_lit(v) || (tracked(v) && word_int(type_of(v)));
+        };
+        return safe(w[2]) && safe(w[4]);
+    };
+
+    for (size_t i = 0; i < f_.code.size(); ++i) {
+        const Instr &in = f_.code[i];
+        if (is_label(in)) { pending.clear(); continue; }
+        std::vector<std::string> w = words(in.text);
+        if (w.empty() || w[0][0] == ';') continue;
+        if (is_jump(w) || w[0] == "call" || w[0] == "copy") {
+            pending.clear();
+            continue;
+        }
+        if (w[0] == "param") {
+            for (const std::string &name : reads(w)) pending.erase(name);
+            continue;
+        }
+        if (candidate(w, in.note)) {
+            for (const std::string &name : reads(w)) pending.erase(name);
+            auto old = pending.find(w[0]);
+            if (old != pending.end()) {
+                remove[old->second] = true;
+                ++removed_here;
+                ++st_.dead_stores;
+                ++st_.removed;
+            }
+            pending[w[0]] = i;
+            continue;
+        }
+        if (is_def(w) && w.size() >= 3 && w[2] != "call") {
+            for (const std::string &name : reads(w)) pending.erase(name);
+            pending.clear();
+            continue;
+        }
+        pending.clear();
+    }
+
+    if (!removed_here) return false;
+    std::vector<Instr> out;
+    out.reserve(f_.code.size() - static_cast<size_t>(removed_here));
+    for (size_t i = 0; i < f_.code.size(); ++i)
+        if (!remove[i]) out.push_back(f_.code[i]);
+    f_.code.swap(out);
     return true;
 }
 
@@ -570,6 +733,8 @@ void FuncOpt::run() {
         bool changed = jumps();
         changed |= merge();
         changed |= forward();
+        changed |= common_subexpressions();
+        changed |= dead_stores();
         changed |= sweep();
         if (!changed) break;
     }

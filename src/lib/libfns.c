@@ -719,8 +719,9 @@ FILE *fopen(const char *name, const char *mode) {
     f->eof = 0;
     f->err = 0;
     f->pos = mode[0] == 'a' && !plus ? -1 : 0;   /* -1: at the end of the file */
-    f->reopen = access | (mode[0] == 'a' ? __FNS_O_APPEND : 0);
+    f->reopen = (access == 1 ? 2 : access) | (mode[0] == 'a' ? __FNS_O_APPEND : 0);
     f->name = strdup(name);
+    f->gap = 0;
     return f;
 }
 
@@ -759,10 +760,12 @@ int fseek(FILE *fp, long off, int whence) {
     f->fd = fd;
     while (done < target) {
         k = __sys_read(fd, buf, target - done < 64 ? target - done : 64);
-        if (k <= 0) break;
+        if (k < 0) { f->err = 1; return -1; }
+        if (k == 0) break;
         done += k;
     }
-    f->pos = done;
+    f->pos = target;
+    f->gap = target - done;
     f->ungot = 0;
     f->eof = 0;
     return 0;
@@ -781,8 +784,17 @@ int remove(const char *name) { return -1; }
 int fputc(int c, FILE *fp) {
     FILE *f = __fns_file(fp);
     char ch = (char)c;
+    char zero = 0;
     if (!f) return -1;
     if (f->fd == 1 || f->fd == 2) { __sys_putc(c & 255); return c & 255; }
+    if (f->reopen & __FNS_O_APPEND) {
+        f->gap = 0;
+    } else {
+        while (f->gap > 0) {
+            if (__sys_write(f->fd, &zero, 1) != 1) { f->err = 1; return -1; }
+            f->gap--;
+        }
+    }
     if (__sys_write(f->fd, &ch, 1) != 1) { f->err = 1; return -1; }
     if (f->pos >= 0) f->pos = (f->reopen & __FNS_O_APPEND) ? -1 : f->pos + 1;
     return c & 255;

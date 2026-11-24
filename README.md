@@ -149,7 +149,7 @@ native C/C++ compiler printed.
 | `31_object_lifetime.cpp` | copy constructors, by-value objects, default arguments, global and static-local objects (first-use initialisation, destruction order, `exit()`), destructors on `goto` |
 | `32_modern_cpp.cpp` | range-based `for` over arrays, `enum class` |
 | `33_array_pointer_arith.c` | multi-level pointers into multi-dimensional arrays `*(*(a+i)+j)`, pointer-to-array variables `int (*p)[4]`, casts to typedef/enum names, constant-expression array bounds |
-| `34_optimizations.c` | IR optimisations keep every result: folding with 32-bit wrap-around, signed `/` `%` of negative numbers (not turned into shifts), unsigned `/` `%` with the top bit set, `f() * 0` still calls `f`, unsigned comparisons with large literals, copies of a `?:` result, constants that reach a label on all paths or only some, a variable changed in a loop, `break`/`continue`/`goto` chains |
+| `34_optimizations.c` | IR optimisations keep every result: folding with 32-bit wrap-around, signed `/` `%` of negative numbers (not turned into shifts), unsigned `/` `%` with the top bit set, `f() * 0` still calls `f`, unsigned comparisons with large literals, copies of a `?:` result, constants that reach a label on all paths or only some, a variable changed in a loop, peephole identities, local dead stores, common subexpressions, `break`/`continue`/`goto` chains |
 | `errors/e01_syntax.c` … `e06_switch_scope.cpp` | syntax errors, undeclared names / wrong argument counts / undefined functions, type errors, misplaced break/continue/goto/duplicate case/const assignment, access-control violations (also through private/protected bases), a case label that jumps past an initialisation |
 
 Other checks: `tools/gate.sh` (grammar has 0 conflicts; the earlier-phase IR test
@@ -233,7 +233,9 @@ what changed. The steps repeat until nothing changes:
 | Constant folding | `t = 3 * 4` → `t = 12`; `ifFalse 1 goto L` → removed, `ifFalse 0 goto L` → `goto L` | 32-bit wrap-around exactly as the MIPS instructions compute it; division by zero, `INT_MIN / -1` and shifts outside 0..31 are left for run time; only `int`/`long`/`unsigned` results are folded (no `float`/`double`) |
 | Constant propagation | `size = 4; t1 = size * 2` → `t1 = 4 * 2` (then folded to `8`); `scale = 4` before a loop → `i * 4` inside it | across basic blocks by a data-flow analysis: at a label a variable is a constant only if it has the same constant on every path that reaches the label (a variable changed inside a loop is not); only locals, parameters and temporaries whose address is never taken (no call or `*p = …` can change them); a literal replaces only a 4-byte integer variable, and never an `unsigned` operand of a comparison (a literal compares as signed) |
 | Copy propagation | `t1 = a; t2 = t1 + 1` → `t2 = a + 1`; `t2 = i * k; r = t2` → `r = i * k` | within one basic block; the copy and its source must have exactly the same type; the temporary of `t = e; v = t` must be assigned and read exactly once; a `param` is only rewritten when nothing but other `param`s stands between it and the `call` that takes it (arguments are read at the call) |
-| Strength reduction | `i * 8` → `i << 3`; `8 * i` → `i << 3`; unsigned `u / 8` → `u >> 3`, `u % 8` → `u & 7`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0`, `x % 1` → `0` | signed `/` and `%` by a power of two stay real divisions (they round toward zero, a shift rounds down) |
+| Peephole identities and strength reduction | `x ^ 0`, `x \| 0`, `x << 0`, `x >> 0` → `x`; `x & 0`, `x - x`, `x ^ x` → `0`; `i * 8` → `i << 3`; unsigned `u / 8` → `u >> 3`, `u % 8` → `u & 7`; `x * 1`, `x + 0`, `x / 1` → `x`; `x * 0`, `x % 1` → `0` | applied only to plain 32-bit integer expressions with safe, trackable operands; signed `/` and `%` by powers of two stay real divisions |
+| Common-subexpression elimination | `t1 = a + b; t2 = a + b` → reuse `t1` | limited to pure integer expressions in one basic block; invalidated when an operand changes; calls and control-flow boundaries end the window |
+| Dead-store elimination | `x = 1; x = 2` → `x = 2` | limited to scalar integer locals/parameters in straight-line code; address-taken variables, calls, memory operations and control-flow boundaries are conservatively excluded |
 | Jump clean-up | `goto L1 … L1: goto L2` → `goto L2`; `goto L; L:` → `L:`; `ifFalse c goto L1; goto L2; L1:` → `if c goto L2`; code after `goto`/`return` that no label reaches, and labels nothing jumps to, are deleted | only jumps and unreachable code change; removing an unused label also lets the next block share the facts of the previous one |
 | Dead temporaries | temporaries no longer read after the steps above are deleted, as are self-copies `x = x` | a call is never deleted, even if its result is unused |
 
@@ -267,7 +269,7 @@ the runtime library embedded in `fnsc` is always the optimised one.
 | `src/parser.y` | bison grammar (0 conflicts) building the AST (`src/ast.hpp`) |
 | `src/codegen.{hpp,cpp}` | semantic analysis and IR generation: scopes, types, class layout, vtables, overloading, constructors/destructors, lambdas |
 | `src/ir.{hpp,cpp}` | IR data structures and printer |
-| `src/optimize.{hpp,cpp}` | IR optimiser: constant folding, constant/copy propagation, strength reduction, jump clean-up |
+| `src/optimize.{hpp,cpp}` | IR optimiser: constant folding, constant/copy propagation, peephole identities, strength reduction, basic-block common-subexpression and dead-store elimination, jump clean-up |
 | `src/mips.{hpp,cpp}` | IR → MIPS32 back end, linking of the used runtime functions |
 | `src/lib/libfns.c` | the C runtime library, written in FNS and compiled by fnsc |
 | `src/runtime.s` | the only hand-written assembly: spim system-call stubs |
@@ -408,7 +410,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 | Topic | FNS | C |
 |---|---|---|
 | Console | `stdin`, `stdout`, `stderr` all use spim's console; output is unbuffered (no `fflush` needed) | buffered streams |
-| Files | `fopen` modes `r w a r+ w+ a+` (`b` ignored); paths are relative to the directory spim runs in. `fseek`/`ftell`/`rewind` work (`SEEK_SET`/`SEEK_CUR`/`SEEK_END`); spim has no seek system call, so `fseek` reopens the file and reads forward to the position, which takes time proportional to the offset, and seeking past the end stops at the end. `remove()` always returns -1 (no delete system call). | full |
+| Files | `fopen` modes `r w a r+ w+ a+` (`b` ignored); paths are relative to the directory spim runs in. `fseek`/`ftell`/`rewind` work (`SEEK_SET`/`SEEK_CUR`/`SEEK_END`); spim has no seek system call, so `fseek` reopens the file and reads forward to the position (time proportional to the offset). Seeking past EOF is tracked; a later write fills the gap with zero bytes. `remove()` always returns -1 (no delete system call). | full |
 | `time()` | returns 0 | wall clock |
 | Math | computed by the library in double precision (sqrt uses the FPU); results may differ from glibc in the last digits | libm |
 | Memory | `malloc` gets memory with spim's `sbrk`; freed blocks are reused; a failing `new` (negative array length, no memory) prints g++'s `terminate called after throwing an instance of 'std::bad_alloc'` message and aborts (there are no exceptions to catch); memory errors (double free, out-of-bounds) are not detected; a null or invalid dereference makes spim print an exception message (`Bad address in data/stack read`) and continue | |

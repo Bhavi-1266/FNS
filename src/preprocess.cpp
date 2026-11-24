@@ -607,7 +607,7 @@ std::string Preprocessor::prelude(const std::string &text) {
     bool own_va = user_typedefs("va_list");
     if (!own_file)
         p += "typedef struct __fns_FILE { int fd; int mode; int ungot; int eof; int err; "
-             "int pos; int reopen; char *name; } FILE; ";
+             "int pos; int reopen; char *name; int gap; } FILE; ";
     if (!user_typedefs("va_list")) p += "typedef char *va_list; ";
     if (!user_typedefs("size_t")) p += "typedef unsigned int size_t; ";
     if (runtime_) return p;

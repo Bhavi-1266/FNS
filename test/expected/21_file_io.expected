@@ -19,6 +19,8 @@ rewind: 0 h eof=0
 overwritten: HELLO world
 bad seek: -1 -1
 append starts at 24
+write-only seek: 0 beyond: 0 at: 6 end: 7
+write-seek bytes: 97 88 99 100 0 0 90
 missing file -> NULL
 written to stdout via fprintf
 written via fputs(stdout)

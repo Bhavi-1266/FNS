@@ -110,11 +110,12 @@ changes (at most 10):
 | Dead temporaries | temporaries no longer read after the steps above are deleted, as are self-copies `x = x` | a call is never deleted, even if its result is unused |
 
 `ifFalse` on a folded constant becomes `goto` or disappears, and the jump clean-up
-then deletes the branch that can no longer run. Copies are propagated within a
-basic block only; stores to local variables that are overwritten before being
-read are not removed. The compiler prints a summary line such as `Optimised IR:
-30 constant(s) folded, 48 constant(s) and 25 copy(ies) propagated, 11 strength
-reduction(s), 11 jump(s) cleaned up, 51 instruction(s) removed`.
+then deletes the branch that can no longer run. Copies and common integer
+subexpressions are handled within a basic block; dead stores are removed only for
+plain scalar integer locals/parameters in straight-line code. Calls, branches,
+memory operations and address-taken variables are conservatively excluded. The
+compiler prints the counts of common expressions reused and dead stores removed
+alongside the other optimization statistics.
 
 Verification: test 34 (expected output from gcc), all other tests (also run
 with `-O0`), and about 190 extra programs compiled with and without the
@@ -699,16 +700,19 @@ in the same union.
 
 **How:**
 - `FILE` is a small struct in the runtime holding the descriptor, the mode, one
-  pushed-back character and the EOF/error flags.
+  pushed-back character, the EOF/error flags and the pending zero-fill gap after
+  a seek past EOF.
 - `fopen` turns the mode string into `open(2)` flags and calls spim syscall 13.
   spim passes these flags to the host, so the runtime chooses the Linux or macOS
   values depending on where fnsc was built.
 - Reading and writing use syscalls 14 and 15, and closing uses syscall 16.
 - **Seeking:** spim has no seek system call, so the `FILE` also keeps the file name, the
   flags to reopen it (without `O_TRUNC`) and the current position (counted on every
-  read and write). `fseek` computes the target (`SEEK_END` measures the file by reading
-  it), reopens the file and reads forward to the target. `ftell` returns the counted
-  position, and `rewind` is `fseek(f, 0, SEEK_SET)` that also clears the error flag.
+  read and write). Write-only streams are reopened read/write for seeking. `fseek`
+  computes the target (`SEEK_END` measures the file by reading it), reopens the file
+  and reads forward to the target. A seek past EOF retains its requested position;
+  the next write zero-fills the gap. `ftell` returns the counted position, and
+  `rewind` is `fseek(f, 0, SEEK_SET)` that also clears the error flag.
 - `stdin`, `stdout` and `stderr` are fixed pseudo-pointers mapped to descriptors 0, 1 and 2.
 - `fprintf` and `fscanf` reuse the same formatter and scanner as `printf` and `scanf`.
 
@@ -900,7 +904,7 @@ the native compiler printed. Current result: **40 / 40 pass**. Other checks:
 
 | Feature | Test | Main implementation |
 |---|---|---|
-| IR optimisation | 34 | `optimize.cpp` `jumps` / `merge` / `forward` (+ `label_constants`) / `sweep` |
+| IR optimisation | 34 | `optimize.cpp` `jumps` / `merge` / `forward` / `common_subexpressions` / `dead_stores` / `sweep` |
 | Operators | 01 | `parser.y` precedence levels; `codegen.cpp` `gen_binary`/`gen_unary`; `mips.cpp` `emit_binop` |
 | if-else | 02 | `codegen.cpp` statement lowering |
 | for / while / do-while | 03 | loop lowering with the break/continue label stack |

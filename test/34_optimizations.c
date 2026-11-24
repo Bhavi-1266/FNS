@@ -1,5 +1,5 @@
-// Test 34: IR optimisations - constant folding, constant/copy propagation and
-// strength reduction must not change any result, including the edge cases:
+// Test 34: IR optimisations - constant folding/propagation, strength reduction,
+// basic-block CSE, local dead stores and peephole identities must preserve results:
 // signed division/remainder of negative numbers (must stay a real division),
 // unsigned division/remainder with the top bit set, 32-bit wrap-around,
 // shifts of negative numbers, calls whose result is multiplied by 0, unsigned
@@ -24,6 +24,22 @@ int plus0(int v) { return v + 0 - 0; }
 unsigned int udiv8(unsigned int u) { return u / 8; }
 unsigned int umod8(unsigned int u) { return u % 8; }
 unsigned int umod1(unsigned int u) { return u % 1; }
+
+int basic_optimizations(int a, int b) {
+    int overwritten = 12;
+    overwritten = a + b;
+    int first = a + b;
+    int second = a + b;
+    int xor_zero = a ^ 0;
+    int or_zero = a | 0;
+    int and_zero = a & 0;
+    int left_zero = a << 0;
+    int right_zero = a >> 0;
+    int self_sub = a - a;
+    int self_xor = a ^ a;
+    return overwritten + first + second + xor_zero + or_zero + and_zero +
+           left_zero + right_zero + self_sub + self_xor;
+}
 
 int main(void) {
     // ---- constant folding ----
@@ -99,5 +115,6 @@ first:
     goto second;
 second:
     if (hits == 4) printf("jumps: hits=%d\n", hits);                        // 4
+    printf("basic optimizations: %d\n", basic_optimizations(6, 4));
     return 0;
 }

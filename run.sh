@@ -83,7 +83,11 @@ for src in "$TESTDIR"/*.c "$TESTDIR"/*.cpp; do
         fail=$((fail + 1)); failed="$failed $name"
         continue
     fi
-    [ "$SHOW_IR" -eq 1 ] && { echo "----- IR for $name -----"; cat "$ir"; }
+    if [ "$SHOW_IR" -eq 1 ]; then
+        echo "==================== 3AC IR: $name  ($ir) ===================="
+        cat "$ir"
+        echo "==================== end of IR: $name ===================="
+    fi
 
     if [ -f "$in" ]; then in="$(pwd)/$in"; else in=/dev/null; fi
     # shellcheck disable=SC2086

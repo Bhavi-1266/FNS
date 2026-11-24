@@ -17,6 +17,9 @@ source.c / source.cpp
 program.s   ──►  spim -file program.s [arguments]
 ```
 
+**[FEATURES.md](FEATURES.md)** explains every feature and how it is implemented,
+with IR and MIPS examples.
+
 ## Simulator required to run the output
 
 > **Required simulator: James Larus' SPIM, MIPS32.** The recommended target is
@@ -42,7 +45,8 @@ Prerequisites: `g++` (C++17), `flex`, `bison` 3.x, GNU `make`; `spim` to run pro
 ```bash
 sudo apt-get install -y g++ make flex bison spim
 make            # builds ./fnsc
-make test       # builds, then runs ./run.sh ./fnsc
+make test       # builds, runs every test and prints each test's 3AC IR (./run.sh ./fnsc --show-ir)
+make check      # the same tests, PASS/FAIL lines only
 make clean
 ```
 
@@ -81,7 +85,7 @@ numbers and no assembly is written), `2` usage / file errors.
 
 ```bash
 ./run.sh ./fnsc                 # every test; prints PASS/FAIL and a summary
-./run.sh ./fnsc --show-ir       # also prints the three-address code of each test
+./run.sh ./fnsc --show-ir       # also prints the three-address code of each test (what `make test` runs)
 ./run.sh ./fnsc 16_classes      # only tests whose name contains the filter
 SIM=/path/to/spim ./run.sh ./fnsc
 ```

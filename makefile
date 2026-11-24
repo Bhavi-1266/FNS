@@ -25,14 +25,16 @@ COMMON_OBJS := $(BUILD)/parser.tab.o $(BUILD)/lex.yy.o $(BUILD)/decl_table.o \
         $(BUILD)/symbol_table.o $(BUILD)/keywords.o $(BUILD)/token.o $(BUILD)/ir.o \
         $(BUILD)/codegen.o $(BUILD)/preprocess.o $(BUILD)/main.o
 
-.PHONY: all help test run clean
+.PHONY: all help test check run clean
 
 all: $(EXE)
 
 help:
 	@echo "FNS (Friendly Neighbourhood Spiderman) compiler: source -> MIPS32 assembly"
 	@echo "  make              Build ./$(EXE)"
-	@echo "  make test         Build and run every program in test/ on spim (./run.sh ./$(EXE))"
+	@echo "  make test         Build, run every test on spim and print each test's 3AC IR"
+	@echo "                    (./run.sh ./$(EXE) --show-ir; IR also saved in test/output/*.ir)"
+	@echo "  make check        Same tests without printing the IR (PASS/FAIL only)"
 	@echo "  make run FILE=x   Compile one source file (writes x.s and x.ir)"
 	@echo "  make clean        Remove generated files and outputs"
 
@@ -83,7 +85,12 @@ $(BUILD)/mips.o: src/mips.cpp $(HDRS) $(RUNTIME_INC) $(LIB_INC)
 $(EXE): $(COMMON_OBJS) $(BUILD)/mips.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
+# `make test` prints the three-address code of every test program before its
+# PASS/FAIL line; the IR of each test is also kept in test/output/NN_name.ir.
 test: $(EXE)
+	bash run.sh ./$(EXE) --show-ir
+
+check: $(EXE)
 	bash run.sh ./$(EXE)
 
 run: $(EXE)

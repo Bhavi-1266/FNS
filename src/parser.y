@@ -174,7 +174,7 @@ static Node *func_node(NK kind, Node *params, Node *ctor_init, Node *body) {
 
 %token INT_KW FLOAT_KW DOUBLE_KW CHAR_KW VOID_KW BOOL_KW LONG_KW SHORT_KW
 %token UNSIGNED_KW SIGNED_KW AUTO_KW CONST_KW STATIC_KW TYPEDEF_KW
-%token STRUCT_KW UNION_KW ENUM_KW CLASS_KW PUBLIC_KW PRIVATE_KW PROTECTED_KW VIRTUAL_KW
+%token STRUCT_KW UNION_KW ENUM_KW CLASS_KW PUBLIC_KW PRIVATE_KW PROTECTED_KW VIRTUAL_KW MUTABLE_KW
 %token IF_KW ELSE_KW FOR_KW WHILE_KW DO_KW UNTIL_KW SWITCH_KW CASE_KW DEFAULT_KW
 %token BREAK_KW CONTINUE_KW GOTO_KW RETURN_KW
 %token NEW_KW DELETE_KW SIZEOF_KW TRUE_KW FALSE_KW NULLPTR_KW
@@ -1030,6 +1030,13 @@ lambda_expr
             $$ = mk2(NK::Lambda, $5, $8);
             $$->str = $2 ? $2 : "";
             $$->type = $7;
+        }
+    | LBRACKET capture_list_opt RBRACKET LPAREN param_list_opt RPAREN MUTABLE_KW lambda_return_opt compound_stmt
+        {
+            $$ = mk2(NK::Lambda, $5, $9);
+            $$->str = $2 ? $2 : "";
+            $$->type = $8;
+            $$->flags |= fns::F_MUTABLE;
         }
     ;
 

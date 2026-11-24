@@ -90,6 +90,7 @@ FLOATLIT     (({DIGIT}+\.{DIGIT}*|{DIGIT}*\.{DIGIT}+){EXP}?|{DIGIT}+{EXP}){FLOAT
 
 "true"       { TOKEN(fns::TokenType::KEYWORD, yytext); return TRUE_KW; }
 "false"      { TOKEN(fns::TokenType::KEYWORD, yytext); return FALSE_KW; }
+"mutable"    { if (!fns_cplusplus) { TOKEN(fns::TokenType::IDENTIFIER, yytext); yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } TOKEN(fns::TokenType::KEYWORD, yytext); return MUTABLE_KW; }
 "nullptr"    { TOKEN(fns::TokenType::KEYWORD, yytext); return NULLPTR_KW; }
 
 "static_cast"|"const_cast"|"reinterpret_cast"|"dynamic_cast" {

@@ -52,7 +52,7 @@ enum class NK {
 
 enum NodeFlag {
     F_STATIC = 1, F_VIRTUAL = 2, F_PURE = 4, F_CTOR = 8, F_DTOR = 16,
-    F_ARRAY = 32, F_DEFAULT = 64, F_PREFIX = 128, F_VALUE_INIT = 256, F_STATIC_DEF = 512
+    F_ARRAY = 32, F_DEFAULT = 64, F_PREFIX = 128, F_VALUE_INIT = 256, F_STATIC_DEF = 512, F_MUTABLE = 1024
 };
 
 struct Node {

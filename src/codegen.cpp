@@ -1228,9 +1228,18 @@ void CodeGen::gen_function(FuncInfo *fi) {
     Node *def = fi->def;
     if (def && def->line > 0) cur_line_ = def->line;
     else if (fi->cls && fi->cls->def_line > 0) cur_line_ = fi->cls->def_line;
-    if (fi->is_ctor) {
+    Node *ctor_inits = fi->is_ctor && def && def->kids.size() > 1 && def->kids[1]->kind == NK::CtorInit ? def->kids[1] : nullptr;
+    Node *delegate = nullptr;               // `C(...) : C(args)`: another constructor does the work
+    if (ctor_inits)
+        for (Node *item : ctor_inits->kids)
+            if (item->str == fi->cls->name) delegate = item;
+    if (delegate) {
+        if (ctor_inits->kids.size() != 1)
+            error(delegate->line, "a delegating constructor cannot have other initializers");
+        call_ctor(fi->cls, "this", delegate);
+    } else if (fi->is_ctor) {
         ClassInfo *ci = fi->cls;
-        Node *init_list = def && def->kids.size() > 1 && def->kids[1]->kind == NK::CtorInit ? def->kids[1] : nullptr;
+        Node *init_list = ctor_inits;
         Node *base_init = nullptr;
         if (init_list && ci->base) {
             for (Node *item : init_list->kids)
@@ -2415,14 +2424,17 @@ Val CodeGen::gen_ident(Node *n) {
             cap.type = s->type;
             cap.holder = lam->fn->irname + "_cap_" + name;
             lam->caps.push_back(cap);
-            TypeSpec pt = by_ref || s->type.ref ? pointer_to(s->type) : s->type;
+            // a mutable lambda receives the address of its own copy (kept by the creator)
+            bool by_addr = by_ref || s->type.ref || lam->is_mutable;
+            TypeSpec pt = by_addr ? pointer_to(s->type) : s->type;
             if (s->type.ref) { pt = s->type; pt.ref = false; pt.ptr++; }
             Symbol &ps = scopes_[scopes_.size() - 1].syms[name] = Symbol();
             ps.kind = Symbol::Var;
             ps.name = name;
             ps.irname = "cap_" + name;
             ps.type = pt;
-            if (by_ref || s->type.ref) ps.type.ref = true, ps.type.ptr--;
+            if (by_addr) ps.type.ref = true, ps.type.ptr--;
+            else if (ps.type.ptr == 0 && ps.type.dims.empty()) ps.type.is_const = true;   // copy in a non-mutable lambda
             ps.func_depth = cur_depth;
             cur_->params.push_back(type_str(pt) + " cap_" + name);
             lam->fn->params.push_back(pt);
@@ -3908,6 +3920,7 @@ Node *first_return_value(Node *n) {
 Val CodeGen::gen_lambda(Node *n) {
     LambdaInfo *lam = new LambdaInfo;
     lam->mode = n->str;
+    lam->is_mutable = (n->flags & F_MUTABLE) != 0;
     FuncInfo *fi = new FuncInfo;
     fi->name = fi->irname = "lambda_" + itos(++lambda_counter_);
     fi->defined = true;
@@ -3956,8 +3969,16 @@ Val CodeGen::gen_lambda(Node *n) {
         sv.type.ref = false;
         TypeSpec ht = cap.by_ref || s->type.ref ? pointer_to(sv.type) : sv.type;
         cur_->locals.push_back(cap.holder + " : " + type_str(ht) + " (" + itos(size_of(ht)) + ")");
-        if (cap.by_ref || s->type.ref) emit(cap.holder + " = " + addr_of(sv), type_str(ht));
-        else emit(cap.holder + " = " + rvalue(sv), type_str(ht));
+        if (cap.by_ref || s->type.ref) {
+            emit(cap.holder + " = " + addr_of(sv), type_str(ht));
+        } else if (lam->is_mutable) {          // the lambda's own copy, passed by address
+            cur_->locals.back() = cap.holder + "_copy : " + type_str(ht) + " (" + itos(size_of(ht)) + ")";
+            cur_->locals.push_back(cap.holder + " : " + type_str(pointer_to(ht)) + " (4)");
+            emit(cap.holder + "_copy = " + rvalue(sv), type_str(ht));
+            emit(cap.holder + " = &" + cap.holder + "_copy", type_str(pointer_to(ht)));
+        } else {
+            emit(cap.holder + " = " + rvalue(sv), type_str(ht));
+        }
     }
     return out;
 }

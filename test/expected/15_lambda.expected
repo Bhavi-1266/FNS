@@ -10,3 +10,6 @@ evens=5
 max3=19
 deduced: 2.50 x 9
 done!
+mutable: 11 12 | 15 20 sum=10 seed=10
+fresh 100
+fresh 101

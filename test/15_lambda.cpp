@@ -1,5 +1,6 @@
 // Feature: lambda functions: no capture, capture by value, by reference, [=], [&],
-// mixed captures, explicit return types, immediate invocation, lambdas as callbacks.
+// mixed captures, explicit return types, immediate invocation, lambdas as callbacks,
+// mutable lambdas (their copies keep changes between calls; the original is unchanged).
 #include <cstdio>
 
 int apply(int (*f)(int), int v) { return f(v); }
@@ -59,5 +60,20 @@ int main() {
     int pair[2] = {5, 9};
     printf("deduced: %.2f %c %d\n", half(5.0), initial("xyz"), *next(pair));
     shout("done");
+
+    // mutable: the lambda changes its own copies, which persist across calls
+    int seed = 10, sum = 0;
+    auto ticker = [seed]() mutable { seed++; return seed; };
+    int c1 = ticker();
+    int c2 = ticker();
+    auto acc = [seed, &sum](int k) mutable -> int { seed += k; sum += k; return seed; };
+    int s1 = acc(5);
+    int s2 = acc(5);
+    printf("mutable: %d %d | %d %d sum=%d seed=%d\n", c1, c2, s1, s2, sum, seed);
+    for (int i = 0; i < 2; i++) {
+        auto fresh = [i]() mutable { i += 100; return i; };   // a new copy each iteration
+        int f = fresh();
+        printf("fresh %d\n", f);
+    }
     return 0;
 }

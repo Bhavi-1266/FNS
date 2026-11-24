@@ -304,7 +304,7 @@ U_add:                         # int add(int a, int b)
 **Supported:** classes and structs with member functions, constructors (default,
 overloaded, with initialiser lists, defined inside or outside the class with
 `Class::method`), destructors, `this`, static data members and static methods,
-const methods, arrays of objects, objects created with `new`/`delete`, and objects
+const methods, delegating constructors, arrays of objects, objects created with `new`/`delete`, and objects
 passed and returned by value.
 
 **How:**
@@ -315,6 +315,9 @@ passed and returned by value.
 - **Constructors and destructors:** constructors become `C_C(this, …)` and destructors `C__dtor(this)`.
 - **Creating objects:** `C obj(args)`, `C obj{args}` and `C obj = C(args)` all
   construct the object in place, in its own storage.
+- **Delegating constructors:** `Box() : Box(1)` calls the other constructor on `this`
+  and skips the base, vtable and member initialisation (the target does them); other
+  initialisers next to a delegating one are an error.
 - **Destroying objects:** destructors run in reverse declaration order when a
   block ends, and before `return`, `break` and `continue`. Temporary objects are
   destroyed at the end of the full statement.
@@ -448,7 +451,7 @@ linked lists, stacks and binary search trees.
 
 **Supported:** lambdas with parameters, captures by value `[x]`, by reference
 `[&x]`, `[=]`, `[&]`, mixed captures, immediately-invoked lambdas, lambdas stored
-in `auto` variables and passed as callbacks, and deduced return types.
+in `auto` variables and passed as callbacks, deduced return types, and `mutable` lambdas.
 
 **How:**
 - Each lambda body becomes a separate top-level function `lambda_N`. The captured
@@ -456,6 +459,10 @@ in `auto` variables and passed as callbacks, and deduced return types.
 - Where the lambda is created, captured values are copied into hidden locals
   (`[=]`), or their addresses are taken (`[&]`). Each call passes them along.
 - The return type is deduced from the first `return` statement.
+- By-value captures are `const` inside the lambda, so changing one is an error unless
+  the lambda is `mutable`. A `mutable` lambda's copies live in a hidden local of the
+  creating function (`lambda_N_cap_x_copy`), and the lambda receives their address,
+  so changes persist from one call to the next while the original variable is unchanged.
 
 ```
 // int k = 5;  auto f = [k](int x) { return x + k; };  f(2);

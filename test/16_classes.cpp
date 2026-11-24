@@ -1,7 +1,7 @@
 // Feature: classes and objects: data members, member functions, constructors (default,
 // parameterised, overloaded, initializer lists), destructors run at end of scope,
 // this->, const methods, static members, objects in arrays, new/delete, out-of-class
-// definitions, direct (T x(a)) and list (T x{a}) initialisation.
+// definitions, direct (T x(a)) and list (T x{a}) initialisation, delegating constructors.
 #include <cstdio>
 
 class Counter {
@@ -57,7 +57,19 @@ public:
     }
 };
 
+class Box {                       // delegating constructors: Box() -> Box(int) -> Box(int, int)
+    int w, h;
+public:
+    Box(int a, int b) : w(a), h(b) { printf("  Box(%d, %d)\n", a, b); }
+    Box(int s) : Box(s, s) { printf("  square %d\n", s); }
+    Box() : Box(1) { printf("  default box\n"); }
+    int area() const { return w * h; }
+};
+
 int main() {
+    Box b0;
+    Box b3(3);
+    printf("box areas %d %d\n", b0.area(), b3.area());
     Counter c1;
     Counter c2(10);
     Counter c3 = Counter(100);

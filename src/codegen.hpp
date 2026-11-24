@@ -75,6 +75,7 @@ struct LambdaInfo {
     };
     std::vector<Cap> caps;
     std::string mode;         // "", "&", "=", or comma list
+    bool is_mutable = false;  // copies may be changed, and keep their value between calls
 };
 
 struct Symbol {

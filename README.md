@@ -53,7 +53,7 @@ make run FILE=prog.c   # compile one file, print its IR and assembly, run it on 
 make clean
 ```
 
-The build has two stages (see `makefile`): a bootstrap compiler `build/fnsc-boot`
+The build has three stages (see `makefile`): a bootstrap compiler `build/fnsc-boot`
 compiles the runtime library `src/lib/libfns.c` (written in FNS itself) to
 `src/lib/libfns.s`; the final `./fnsc` embeds that assembly.
 

@@ -46,6 +46,8 @@ struct Field {
     bool is_static = false;
     std::string irname;
     Node *init = nullptr;     // default member initializer (`int v = 5;`)
+    int bit_width = 0;        // bit-field: width and position inside the unit at `offset`
+    int bit_offset = 0;
 };
 
 struct ClassInfo {
@@ -109,6 +111,8 @@ struct Val {
     LambdaInfo *lam = nullptr;
     bool bad = false;      // produced by an expression that already reported an error
     bool row_ptr = false;  // address of a row of a multi-dimensional array (type = the row)
+    int bit_width = 0;     // a bit-field at place (its storage unit): width and bit position
+    int bit_offset = 0;
     std::string temp_obj;  // unnamed temporary object (destroyed at the end of the statement)
 };
 
@@ -277,6 +281,10 @@ private:
     bool uses_atexit_ = false;            // a static-local object registers its destructor
     bool literal_init(Node *init, const TypeSpec &t);
     TypeSpec open_first_dim(TypeSpec t);
+    std::string load_bits(const Val &v);
+    void store_bits(const Val &lhs, const std::string &v);
+    Val field_val(const std::string &addr, const Field &f);
+    void layout_bitfield(ClassInfo *ci, Node *d, int access, int &off, int &bitpos);
     void gen_vla(Node *n, Node *bound);
     bool designated_member(const std::string &a, const TypeSpec &t, Node *list, size_t &idx);
     std::vector<std::pair<std::string, ClassInfo *>> temp_dtors_;   // argument copies to destroy

@@ -218,14 +218,24 @@ is scaled by the row size, and `*(a + i)` gives the row, which decays to `int*`.
 **Supported:** struct definitions, nested structs, arrays of structs, structs
 containing arrays, pointers to structs, struct assignment, pass and return by value,
 `typedef struct`, self-referential structs (linked lists, trees), brace initialisers,
-and designated initialisers (`{.year = 2026, .day = 24}`, nested `{.lo.x = 0}`, and
-`{[2] = {.month = 12}, [0].day = 1}` in arrays of structs).
+designated initialisers (`{.year = 2026, .day = 24}`, nested `{.lo.x = 0}`, and
+`{[2] = {.month = 12}, [0].day = 1}` in arrays of structs), and bit-fields
+(`unsigned on : 1, mode : 3; int level : 4; unsigned : 0;`).
 
 **How:** `codegen.cpp` lays out the fields in declaration order. Each field is aligned
 to its size (at most 4), and the struct size is rounded up to 4. `s.f` becomes
 `&s + offset(f)`, and `p->f` becomes `p + offset(f)`. Struct assignment and
 by-value passing use the IR instruction `copy dst, src, n`, which the back end
 expands into word copies.
+
+**Bit-fields.** `layout_bitfield` packs consecutive bit-fields like gcc: each one goes
+into the next free bits of a unit the size of its type (`int` → 32 bits), starting a
+new unit if it would straddle one or for `: 0`. The field records the unit's byte
+offset, its bit position and width. Reading loads the unit and shifts the field up to
+bit 31 and back down (an arithmetic shift for signed fields, so `int level : 4` holding
+`1100` reads as -4). Writing loads the unit, clears the field's bits with a mask, ORs in
+the shifted value and stores the unit back. Assignment, compound assignment, `++`/`--`
+and initialisers all go through these two operations.
 
 **Designated initialisers.** A designator `.f`, `[i]` or a chain such as `.lo.x` is a
 `Designator` node in the brace list. The object is zeroed first; `fill_aggregate`

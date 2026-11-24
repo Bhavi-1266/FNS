@@ -1,6 +1,6 @@
 /* Feature: struct: nested, arrays of structs, pointers, copy, pass/return by value,
    typedef struct, self-referential struct (linked list), sizeof and layout,
-   designated initializers (.field = v, nested .a.b = v, in arrays of structs). */
+   designated initializers (.field = v, nested .a.b = v, in arrays of structs), bit-fields. */
 #include <stdio.h>
 #include <string.h>
 
@@ -12,6 +12,8 @@ struct Student {
     struct Date dob;
 };
 typedef struct { double re, im; } Complex;
+/* bit-fields: packed into one unsigned int; `level` is signed; `: 0` starts a new unit */
+struct Status { unsigned on : 1, mode : 3; int level : 4; unsigned : 0; unsigned code : 8; };
 typedef struct Node { int val; struct Node *next; } Node;
 
 Complex add(Complex a, Complex b) { Complex r; r.re = a.re + b.re; r.im = a.im + b.im; return r; }
@@ -66,5 +68,10 @@ int main() {
     struct Date ds[3] = { [2] = { .month = 12 }, [0].day = 1 };
     Complex z = { .im = -1.5 };
     printf("%d/%d/%d %d %d %d %.1f %.1f\n", d1.day, d1.month, d1.year, ds[0].day, ds[2].month, ds[1].year, z.re, z.im);
+    struct Status st = { 1, 5, -3, 200 };
+    st.mode += 4;                 /* 9 does not fit in 3 bits: wraps to 1 */
+    st.level--;
+    st.code++;
+    printf("bits: %u %u %d %u size=%d\n", st.on, st.mode, st.level, st.code, (int)sizeof(struct Status));
     return 0;
 }

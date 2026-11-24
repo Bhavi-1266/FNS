@@ -217,7 +217,7 @@ static Node *func_node(NK kind, Node *params, Node *ctor_init, Node *body) {
 %type <num> type_qualifiers_opt sign_spec pointer_opt ref_opt access_specifier
 %type <dims> array_suffix_opt
 %type <node> top_level_list top_level_item toplevel_decl toplevel_decl_tail typedef_decl
-%type <node> member member_list member_list_opt enumerator_list
+%type <node> member member_list member_list_opt enumerator_list bitfield_list bitfield_item
 %type <node> init_declarator init_declarator_list initializer brace_init init_list_opt init_list init_item designator_index designator_atom designation
 %type <node> simple_decl simple_paren_decl fnptr_function_head declaration_stmt more_declarators_opt
 %type <node> param param_list param_list_opt ctor_init_opt ctor_init_list ctor_init_item
@@ -815,6 +815,18 @@ member
     | constructor_def              { $$ = $1; }
     | destructor_def               { $$ = $1; }
     | VIRTUAL_KW destructor_def    { $$ = $2; $$->flags |= fns::F_VIRTUAL; }
+    | bitfield_list SEMI           { $$ = $1; }
+    ;
+
+/* bit-fields: `unsigned a : 3, b : 5;`, unnamed `int : 4;` and `int : 0;` (kids[0] = width) */
+bitfield_list
+    : type_spec bitfield_item                { $2->type = $1; $$ = list_add(nullptr, $2); }
+    | bitfield_list COMMA bitfield_item      { $3->type = $1->kids[0]->type; $$ = list_add($1, $3); }
+    ;
+
+bitfield_item
+    : IDENTIFIER COLON conditional_expr   { $$ = mk1(NK::VarDecl, $3, $1); $$->flags |= fns::F_BITFIELD; }
+    | COLON conditional_expr              { $$ = mk1(NK::VarDecl, $2); $$->flags |= fns::F_BITFIELD; }
     ;
 
 member_list

@@ -304,7 +304,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 | 64-bit integers | Not available: `long long`/`%lld` are 32-bit; literals that do not fit in 32 bits are truncated. | 64-bit |
 | `char` | signed | signed |
 | Struct layout | members aligned to their size (max 4), size rounded to 4; `double` members are 4-aligned. | `double` 8-aligned |
-| Bit-fields | not supported (`int x : 3;` is a syntax error) | supported |
+| Bit-fields | `unsigned a : 3, b : 5; int level : 4; unsigned : 2; int : 0;` in structs, unions and classes, laid out like gcc (a field never straddles a unit of its declared type; a plain `int` bit-field is signed). Reading, assignment, compound assignment, `++`/`--`, brace/designated/constructor initialisation work; `&` of a bit-field is an error. Not supported: a bit-field as the last step of a chained designator (`.flags.ready = 1`). | same |
 | Integer conversions | simplified fixed-width model; pointer ↔ integer conversions are implicit (no cast needed); pointer-to-pointer type mismatches are not diagnosed | stricter |
 | `const` | const objects are checked; constness of a pointer itself (`T *const`) is not tracked | full |
 | `auto` | deduces the type of a local from its initializer (never a reference or array); `auto` variables holding lambdas | full |

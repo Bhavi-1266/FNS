@@ -436,6 +436,7 @@ std::string CodeGen::rvalue(const Val &v) {
             }
             return v.place;
         case Val::Addr:
+            if (v.bit_width) return load_bits(v);
             if (is_array(v.type) || is_aggregate(v.type)) return v.place;
             return load(v.place, v.type);
         case Val::Func: return v.fn->irname;
@@ -452,7 +453,9 @@ std::string CodeGen::addr_of(const Val &v) {
             emit(r + " = &" + v.place, type_str(pointer_to(v.type)));
             return r;
         }
-        case Val::Addr: return v.place;
+        case Val::Addr:
+            if (v.bit_width) error(cur_line_, "cannot take the address of a bit-field");
+            return v.place;
         case Val::Func: return v.fn->irname;
         default: return v.place;
     }
@@ -460,13 +463,46 @@ std::string CodeGen::addr_of(const Val &v) {
 
 void CodeGen::store(const Val &lhs, const std::string &v, const TypeSpec &vt) {
     (void)vt;
-    if (lhs.k == Val::Var) {
+    if (lhs.bit_width) {
+        store_bits(lhs, v);
+    } else if (lhs.k == Val::Var) {
         emit(lhs.place + " = " + v, type_str(lhs.type));
     } else if (lhs.k == Val::Addr) {
         emit("*" + lhs.place + " = " + v, type_str(lhs.type));
     } else {
         error(0, "assignment to non-lvalue");
     }
+}
+
+// Read a bit-field: load its unit, shift the field to the top, then back down
+// (arithmetic shift for a signed field, so the value is sign-extended).
+std::string CodeGen::load_bits(const Val &v) {
+    std::string unit = load(v.place, v.type);
+    int up = 32 - v.bit_offset - v.bit_width;
+    std::string x = up ? emit_binop(unit, "<<", itos(up), int_type()) : unit;
+    TypeSpec rt = int_type();
+    rt.is_unsigned = v.type.is_unsigned;
+    return emit_binop(x, ">>", itos(32 - v.bit_width), rt);
+}
+
+// Write a bit-field: keep the unit's other bits and insert the low bits of `v`.
+void CodeGen::store_bits(const Val &lhs, const std::string &v) {
+    unsigned mask = (lhs.bit_width >= 32 ? 0xffffffffu : (1u << lhs.bit_width) - 1) << lhs.bit_offset;
+    std::string kept = emit_binop(load(lhs.place, lhs.type), "&", itos((int)~mask), int_type());
+    std::string part = emit_binop(v, "<<", itos(lhs.bit_offset), int_type());
+    part = emit_binop(part, "&", itos((int)mask), int_type());
+    emit("*" + lhs.place + " = " + emit_binop(kept, "|", part, int_type()), type_str(lhs.type));
+}
+
+// The member `f` of the object whose member address is `addr`, as an assignable value.
+Val CodeGen::field_val(const std::string &addr, const Field &f) {
+    Val v;
+    v.k = Val::Addr;
+    v.place = addr;
+    v.type = f.type;
+    v.bit_width = f.bit_width;
+    v.bit_offset = f.bit_offset;
+    return v;
 }
 
 std::string CodeGen::convert(const std::string &place, const TypeSpec &from, const TypeSpec &to) {
@@ -792,6 +828,7 @@ void CodeGen::layout_class(ClassInfo *ci, Node *def) {
 
     // Fields retain the access section and declaring class, including when inherited.
     int current_access = ci->kind == Base::Class ? 1 : 0;
+    int bitpos = -1;                    // bit position while consecutive bit-fields are packed
     for (Node *m : def->kids) {
         if (m->kind == NK::Access) {
             current_access = m->access;
@@ -804,6 +841,8 @@ void CodeGen::layout_class(ClassInfo *ci, Node *def) {
             if (d->kind == NK::AggDef) { process_aggregate(d); continue; }  // struct {...} member;
             if (d->kind == NK::EnumDef) { process_enum(d); continue; }
             if (d->kind != NK::VarDecl) continue;
+            if (d->flags & F_BITFIELD) { layout_bitfield(ci, d, current_access, off, bitpos); continue; }
+            if (bitpos >= 0 && !(d->flags & F_STATIC)) { off = (bitpos + 7) / 8; bitpos = -1; }
             Field f;
             f.name = d->str;
             f.type = resolve(*d->type);
@@ -835,6 +874,7 @@ void CodeGen::layout_class(ClassInfo *ci, Node *def) {
             ci->fields.push_back(f);
         }
     }
+    if (bitpos >= 0) off = (bitpos + 7) / 8;
     if (ci->kind != Base::Union) ci->size = (off + 3) & ~3;
     else ci->size = (ci->size + 3) & ~3;
     if (ci->size == 0) ci->size = 4;
@@ -1176,6 +1216,38 @@ bool CodeGen::literal_init(Node *init, const TypeSpec &t) {
     return init->kind == NK::StrLit && is_pointer(t);
 }
 
+// Place a bit-field `T name : w` as gcc does: in the next free bits of a unit the size
+// of T, starting a new unit when it would straddle one (or for a zero-width field).
+void CodeGen::layout_bitfield(ClassInfo *ci, Node *d, int access, int &off, int &bitpos) {
+    Field f;
+    f.name = d->str;
+    f.type = resolve(*d->type);
+    f.access = access;
+    f.owner = ci;
+    f.irname = ci->name + "_" + f.name;
+    long w = 0;
+    int unit = std::max(1, size_of(f.type)) * 8;
+    if (!is_integer(f.type) || f.type.ptr || !f.type.dims.empty()) {
+        error(d->line, "bit-field '" + f.name + "' must have an integer type");
+        unit = 32;
+    }
+    if (!eval_const_int(d->kids[0], w) || w < 0 || w > unit || (w == 0 && !f.name.empty())) {
+        error(d->line, "invalid width for bit-field '" + f.name + "'");
+        w = 1;
+    }
+    if (ci->kind == Base::Union) {
+        ci->size = std::max(ci->size, unit / 8);
+    } else {
+        if (bitpos < 0) bitpos = off * 8;
+        if (w == 0 || bitpos / unit != (bitpos + (int)w - 1) / unit) bitpos = (bitpos + unit - 1) / unit * unit;
+        f.offset = bitpos / unit * (unit / 8);
+        f.bit_offset = bitpos % unit;
+        bitpos += (int)w;
+    }
+    f.bit_width = (int)w;
+    if (!f.name.empty()) ci->fields.push_back(f);
+}
+
 void CodeGen::gen_pending_bodies() {
     for (size_t i = 0; i < pending_.size(); ++i) gen_function(pending_[i]);
 }
@@ -1294,10 +1366,8 @@ void CodeGen::gen_function(FuncInfo *fi) {
                 call_ctor(fc, a, member_init ? &explicit_args : &empty_args);
             } else if (!member_init && fld.init && !is_aggregate(fld.type) && fld.type.dims.empty()) {
                 Val v = gen_expr(fld.init);            // default member initializer
-                if (check_assignable(fld.init->line, fld.type, v, "initialization")) {
-                    std::string r = convert(rvalue(v), v.type, fld.type);
-                    emit("*" + a + " = " + r, type_str(fld.type));
-                }
+                if (check_assignable(fld.init->line, fld.type, v, "initialization"))
+                    store(field_val(a, fld), convert(rvalue(v), v.type, fld.type), fld.type);
             } else if (!member_init && fld.init && fld.init->kind == NK::InitList) {
                 init_aggregate(a, fld.type, fld.init);
             } else if (member_init) {
@@ -1307,8 +1377,7 @@ void CodeGen::gen_function(FuncInfo *fi) {
                     error(member_init->line, "aggregate member initializer requires a constructor");
                 } else if (member_init->kids.size() == 1) {
                     Val v = gen_expr(member_init->kids[0]);
-                    std::string r = convert(rvalue(v), v.type, fld.type);
-                    emit("*" + a + " = " + r, type_str(fld.type));
+                    store(field_val(a, fld), convert(rvalue(v), v.type, fld.type), fld.type);
                 } else {
                     error(member_init->line, "too many values in member initializer");
                 }
@@ -2013,6 +2082,14 @@ void CodeGen::fill_aggregate(const std::string &base, const TypeSpec &t, Node *l
                 emit("*" + a + " = " + addr_of(v), type_str(pointer_to(f.type)));
             continue;
         }
+        if (f.bit_width) {                         // a bit-field takes one scalar value
+            Node *k = list->kids[idx++];
+            if (k->kind == NK::Designator) k = k->kids[0];
+            Val v = gen_expr(k);
+            if (check_assignable(k->line, f.type, v, "initialization"))
+                store(field_val(a, f), convert(rvalue(v), v.type, f.type), f.type);
+            continue;
+        }
         if (!designated_member(a, f.type, list, idx)) init_member(a, f.type, list, idx);
     }
     if (braced)
@@ -2612,6 +2689,8 @@ Val CodeGen::gen_ident(Node *n) {
                 } else {
                     v.place = field_addr;
                 }
+                v.bit_width = f->bit_width;
+                v.bit_offset = f->bit_offset;
             }
             v.type = f->type;
             v.type.ref = false;
@@ -3011,11 +3090,11 @@ Val CodeGen::gen_incdec(Node *target, const std::string &op, bool prefix) {
         emit(lhs.place + " = " + nv, type_str(t));
         if (prefix) out.place = nv;
     } else if (lhs.k == Val::Addr) {
-        std::string old = load(lhs.place, t);
+        std::string old = lhs.bit_width ? load_bits(lhs) : load(lhs.place, t);
         std::string old_value = convert(old, t, op_type);
         std::string nv = emit_binop(old_value, op, step, op_type);
         nv = convert(nv, op_type, t);
-        emit("*" + lhs.place + " = " + nv, type_str(t));
+        store(lhs, nv, t);
         out.place = prefix ? nv : old;
     } else {
         error(target->line, "increment of non-lvalue");
@@ -3203,7 +3282,7 @@ Val CodeGen::gen_assign(Node *n) {
         error(n->line, "cannot assign to an array");
         return lhs;
     }
-    std::string curv = lhs.k == Val::Var ? lhs.place : load(lhs.place, lt);
+    std::string curv = lhs.k == Val::Var ? lhs.place : lhs.bit_width ? load_bits(lhs) : load(lhs.place, lt);
     Val r = gen_expr(n->kids[1]);
     if (r.type.base == Base::Void && r.type.ptr == 0 && r.type.dims.empty()) {
         error(n->line, "void value used in compound assignment");
@@ -3821,6 +3900,8 @@ Val CodeGen::gen_member(Node *n, bool arrow) {
             } else {
                 out.place = field_addr;
             }
+            out.bit_width = f->bit_width;
+            out.bit_offset = f->bit_offset;
         }
         out.type = f->type;
         out.type.ref = false;

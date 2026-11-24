@@ -10,3 +10,4 @@ Chen 30 / Copy 1
 sizeof(struct Date)=12 sizeof(Complex)=16
 via pointer: 2003-1-1
 24/0/2026 1 12 0 0.0 -1.5
+bits: 1 1 -4 201 size=8

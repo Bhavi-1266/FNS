@@ -19,14 +19,15 @@ program.s   ──►  spim -file program.s [arguments]
 
 ## Simulator required to run the output
 
-> **The generated `.s` files run on the `spim` MIPS32 simulator** (James Larus' SPIM,
-> tested with **SPIM Version 8.0**, the version in Ubuntu/Debian: `sudo apt-get install spim`).
-> Run a compiled program with the **command-line** simulator:
-> `spim -file program.s [program arguments]`. No simulator options are needed: the
-> output fits spim's default 64 KB text segment, is little-endian and uses only spim
-> system calls. Use command-line spim rather than QtSpim or MARS: console input is
-> read with spim's `read` system call on file descriptor 0 and files are opened with
-> Linux `O_*` flags, which those simulators handle differently.
+> **Required simulator: James Larus' SPIM, MIPS32.** The recommended target is
+> **SPIM Version 8.0 on Linux** (`sudo apt-get install spim`). Run a compiled program
+> with `spim -file program.s [program arguments]`. Output uses SPIM system calls and
+> fits its default 64 KB text segment. The runtime chooses Linux or macOS `open(2)`
+> flags when `fnsc` is built, so build and run the assembly on the same host OS.
+> macOS SPIM 9.1 has a command-line argument limitation: it drops arguments after
+> `-file`. The test harness detects this and supplies equivalent startup registers
+> for the `argc`/`argv` regression test. Programs that need command-line arguments
+> should use the recommended Linux SPIM 8.0 setup.
 
 The generated assembly is self-contained: the C library (printf, scanf, files,
 strings, malloc, math, …) is part of every output file, and only the library

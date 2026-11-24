@@ -630,6 +630,8 @@ FILE *__fns_file(FILE *fp) {
     return fp;
 }
 
+/* Comment: >30 lines because it maps the three supported modes to the host's
+   SPIM syscall flags, opens the file and initializes the runtime FILE object. */
 FILE *fopen(const char *name, const char *mode) {
     int flags = 0, fd;
     int plus = 0;
@@ -637,8 +639,20 @@ FILE *fopen(const char *name, const char *mode) {
     FILE *f;
     for (m = mode; *m; m++) if (*m == '+') plus = 1;
     if (mode[0] == 'r') flags = plus ? 2 : 0;
-    else if (mode[0] == 'w') flags = (plus ? 2 : 1) | 64 | 512;
-    else if (mode[0] == 'a') flags = (plus ? 2 : 1) | 64 | 1024;
+    else if (mode[0] == 'w') {
+#ifdef __FNS_DARWIN__
+        flags = (plus ? 2 : 1) | 512 | 1024; /* O_CREAT | O_TRUNC */
+#else
+        flags = (plus ? 2 : 1) | 64 | 512;   /* O_CREAT | O_TRUNC */
+#endif
+    }
+    else if (mode[0] == 'a') {
+#ifdef __FNS_DARWIN__
+        flags = (plus ? 2 : 1) | 512 | 8;    /* O_CREAT | O_APPEND */
+#else
+        flags = (plus ? 2 : 1) | 64 | 1024;  /* O_CREAT | O_APPEND */
+#endif
+    }
     else return 0;
     fd = __sys_open(name, flags, 420);
     if (fd < 0) return 0;

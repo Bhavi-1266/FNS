@@ -87,8 +87,20 @@ for src in "$TESTDIR"/*.c "$TESTDIR"/*.cpp; do
 
     if [ -f "$in" ]; then in="$(pwd)/$in"; else in=/dev/null; fi
     # shellcheck disable=SC2086
-    (cd "$OUTDIR/run" && $TIMEOUT "$SIM" -file "../$stem.s" $args < "$in" 2>&1) \
+    # Use a unique working directory for each run so file-I/O tests never read
+    # artifacts left by an earlier invocation or test.
+    run_dir=$(mktemp -d "$OUTDIR/run/${stem}.XXXXXX")
+    (cd "$run_dir" && $TIMEOUT "$SIM" -file "../../$stem.s" $args < "$in" 2>&1) \
         | strip_banner > "$OUTDIR/$stem.out"
+
+    # SPIM 9.1 on macOS accepts the command but drops arguments after -file.
+    # Retry this test with an equivalent startup wrapper so argc/argv lowering
+    # still gets exercised on that simulator build.
+    if [ "$stem" = "20_command_line" ] && grep -qx 'argc = 1' "$OUTDIR/$stem.out"; then
+        python3 tools/spim_args.py "$asm" "$run_dir/with_args.s" "test/args/$stem.args"
+        (cd "$run_dir" && $TIMEOUT "$SIM" -file with_args.s < "$in" 2>&1) \
+            | strip_banner > "$OUTDIR/$stem.out"
+    fi
 
     if [ ! -f "$exp" ]; then
         echo "?     $name  (no expected output; got test/output/$stem.out)"

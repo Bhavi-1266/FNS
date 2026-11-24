@@ -163,6 +163,11 @@ private:
 // Comment: >30 lines because it is a list of definitions.
 void Preprocessor::predefine() {
     define("__FNS__", "1");
+#ifdef __APPLE__
+    // SPIM forwards syscall 13 flags to the host OS. The runtime uses this
+    // marker to select Darwin's open(2) flag values when fnsc is built there.
+    define("__FNS_DARWIN__", "1");
+#endif
     if (cplusplus_) define("__cplusplus", "201703L");
     define("NULL", "((void*)0)");
     define("EOF", "(-1)");

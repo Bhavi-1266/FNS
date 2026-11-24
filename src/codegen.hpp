@@ -52,6 +52,7 @@ struct ClassInfo {
     std::string name;
     Base kind = Base::Struct;
     ClassInfo *base = nullptr;
+    int base_access = 0;                        // public=0, private=1, protected=2 inheritance
     std::vector<Field> fields;                  // includes inherited fields
     std::map<std::string, FuncInfo *> methods;  // own methods only
     std::vector<FuncInfo *> vtable;
@@ -177,7 +178,7 @@ private:
     TypeSpec decay_param(const TypeSpec &t);
     bool check_assignable(int line, const TypeSpec &to, const Val &from, const char *what);
     bool same_type(const TypeSpec &a, const TypeSpec &b);
-    bool derives_from(ClassInfo *derived, ClassInfo *base);
+    static bool derives_from(ClassInfo *derived, ClassInfo *base);
     std::string cond_value(Node *n);
     bool is_scalar(const TypeSpec &t) const;
     bool is_integer(const TypeSpec &t) const;
@@ -215,6 +216,9 @@ private:
     FuncInfo *find_method(ClassInfo *ci, const std::string &name);
     const Field *find_field(ClassInfo *ci, const std::string &name);
     bool can_access(int access, ClassInfo *owner, ClassInfo *object_type = nullptr) const;
+    int access_in(ClassInfo *naming, ClassInfo *owner, int access) const;
+    bool allowed(int access, ClassInfo *naming, ClassInfo *object_type) const;
+    bool base_accessible(int line, ClassInfo *derived, ClassInfo *base);
     FuncInfo *external(const std::string &name);
     ClassInfo *class_of(const TypeSpec &t);
     ClassInfo *class_of(const std::string &name);

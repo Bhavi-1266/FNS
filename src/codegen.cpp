@@ -341,17 +341,47 @@ const Field *CodeGen::find_field(ClassInfo *ci, const std::string &name) {
     return nullptr;
 }
 
-bool CodeGen::can_access(int access, ClassInfo *owner, ClassInfo *object_type) const {
+// Access of a member declared in `owner` with `access` when it is named in the derived
+// class `naming`: a private base makes it private (or hides an already private member,
+// 3 = inaccessible), a protected base makes public members protected.
+int CodeGen::access_in(ClassInfo *naming, ClassInfo *owner, int access) const {
+    std::vector<ClassInfo *> path;
+    for (ClassInfo *c = naming; c && c != owner; c = c->base) path.push_back(c);
+    for (auto it = path.rbegin(); it != path.rend(); ++it) {
+        if (access == 1 || access == 3) return 3;
+        if ((*it)->base_access != 0) access = (*it)->base_access;
+    }
+    return access;
+}
+
+// Whether the current code may use a member whose access, as a member of `naming`, is `access`.
+bool CodeGen::allowed(int access, ClassInfo *naming, ClassInfo *object_type) const {
     if (access == 0) return true;
-    if (!cur_class_ || !owner) return false;
-    if (access == 1) return cur_class_ == owner;
-    bool derives_from_owner = false;
-    for (ClassInfo *c = cur_class_; c; c = c->base)
-        if (c == owner) derives_from_owner = true;
-    if (!derives_from_owner) return false;
-    if (!object_type || cur_class_ == owner) return true;
-    for (ClassInfo *c = object_type; c; c = c->base)
-        if (c == cur_class_) return true;
+    if (access == 3 || !cur_class_) return false;
+    if (access == 1) return cur_class_ == naming;
+    if (!derives_from(cur_class_, naming)) return false;
+    return !object_type || cur_class_ == naming || derives_from(object_type, cur_class_);
+}
+
+// C++ member access: the member is usable if it is accessible as a member of the naming
+// class, or of a base on the way to `owner` that is itself accessible from the naming class.
+bool CodeGen::can_access(int access, ClassInfo *owner, ClassInfo *object_type) const {
+    if (!owner) return access == 0;
+    ClassInfo *naming = object_type ? object_type : cur_class_;
+    if (!naming || !derives_from(naming, owner)) naming = owner;
+    for (ClassInfo *c = naming; c; c = c->base) {
+        if (allowed(access_in(c, owner, access), c, object_type) &&
+            (c == naming || allowed(access_in(naming, c, 0), naming, nullptr)))
+            return true;
+        if (c == owner) break;
+    }
+    return false;
+}
+
+// Derived-to-base conversion (pointer, reference) needs an accessible base.
+bool CodeGen::base_accessible(int line, ClassInfo *derived, ClassInfo *base) {
+    if (!derived || !base || derived == base || can_access(0, base, derived)) return true;
+    error(line, "'" + base->name + "' is an inaccessible base of '" + derived->name + "'");
     return false;
 }
 
@@ -730,7 +760,7 @@ void CodeGen::layout_class(ClassInfo *ci, Node *def) {
     if (def->line > 0) cur_line_ = def->line;
     if (!def->str2.empty()) {
         auto b = classes_.find(def->str2);
-        if (b != classes_.end()) ci->base = b->second;
+        if (b != classes_.end()) ci->base = b->second, ci->base_access = def->access;
         else error(def->line, "unknown base class " + def->str2);
     }
 
@@ -1655,6 +1685,7 @@ void CodeGen::gen_var_init(const Symbol &sym, const TypeSpec &t, Node *init) {
             return;
         }
         if ((v.k == Val::Var || v.k == Val::Addr) && types_match) {
+            if (is_aggregate(vt)) base_accessible(init->line, class_of(vt), class_of(referent));
             a = addr_of(v);
         } else if (t.is_const) {
             if (!check_assignable(init->line, referent, v, "reference initialization")) return;
@@ -3190,6 +3221,7 @@ std::vector<std::string> CodeGen::eval_args(FuncInfo *fi, Node *args_in, int ski
                 error(args->kids[i]->line, "reference parameter of type '" + type_str(fi->params[pi]) + "' cannot bind to an argument of type '" + type_str(at) + "'");
                 places.push_back("0");
             } else if ((a.k == Val::Var || a.k == Val::Addr) && types_match) {
+                if (is_aggregate(at)) base_accessible(args->kids[i]->line, class_of(at), class_of(referent));
                 places.push_back(addr_of(a));
             } else if (fi->params[pi].is_const) {
                 if (!check_assignable(args->kids[i]->line, referent, a, "argument passing")) { places.push_back("0"); continue; }
@@ -3824,12 +3856,15 @@ bool CodeGen::check_assignable(int line, const TypeSpec &to_in, const Val &from,
     if (is_aggregate(to) || is_aggregate(ft)) {
         if (is_aggregate(to) && is_aggregate(ft)) {
             ClassInfo *tc = class_of(to), *fc = class_of(ft);
-            if (tc && fc && (tc == fc || derives_from(fc, tc))) return true;
+            if (tc && fc && (tc == fc || derives_from(fc, tc))) return base_accessible(line, fc, tc);
         }
         error(line, std::string("incompatible types in ") + what + ": cannot convert '" + type_str(ft) + "' to '" + type_str(to) + "'");
         return false;
     }
     TypeSpec fdecay = is_array(ft) ? pointer_to(ft) : ft;
+    if (to.ptr == 1 && fdecay.ptr == 1 && class_of(to) && class_of(fdecay) &&
+        derives_from(class_of(fdecay), class_of(to)))
+        return base_accessible(line, class_of(fdecay), class_of(to));
     bool to_ptr = is_pointer(to) || to.base == Base::Func;
     bool from_ptr = is_pointer(fdecay) || fdecay.base == Base::Func || fdecay.base == Base::Lambda;
     if ((to_ptr && is_float(fdecay)) || (is_float(to) && from_ptr)) {

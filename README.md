@@ -348,7 +348,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 |---|---|---|
 | Classes | `class`/`struct` with fields, methods (in-class or out-of-class `R C::f() {…}`), constructors with initializer lists, destructors, static data members and static methods, `this`, const methods. Nested class definitions inside a class body are not supported. | full |
 | Access control | `public`/`private`/`protected` checked, including the protected rule for derived classes; `friend` is not supported | + friend |
-| Inheritance | single **public** inheritance (multi-level allowed). Multiple, virtual, private or protected inheritance are not supported. | all |
+| Inheritance | single inheritance (multi-level allowed) with `public`, `protected` or `private` base access, enforced as in C++ (including conversion to an inaccessible base). Multiple and virtual inheritance are not supported. | all |
 | Virtual functions | vtable dispatch; pure virtual functions; virtual destructors. Instantiating an abstract class is not rejected (calling the pure function prints `pure virtual method called` and stops). | abstract classes rejected |
 | Constructors | overloads, default arguments, initializer lists, `T x(args)`, `T x{args}`, `T x = T(args)`, `new T(args)`, arrays of objects (default constructor). **Delegating constructors** (`A(int a) : A()`) are not supported. | full |
 | Converting constructor | a constructor taking one argument is used implicitly: `V v = 7;`, `f(8)` for a `V` or `const V&` parameter. `explicit` is not supported. | same |
@@ -392,6 +392,8 @@ initialisation / arguments / return, `void` values, invalid operands, non-scalar
 conditions, wrong argument counts, ambiguous or unmatched overloads, calls to
 functions that exist nowhere ("undefined reference"), const assignment, array
 assignment, break/continue outside loops, goto to missing labels, duplicate case
-labels, non-integer switch/case, access violations, missing default
-constructors, reference binding errors, non-constant array bounds. See
-`test/errors/` and `test/ir_phase/semantic_*` for examples.
+labels, non-integer switch/case, access violations (including members reached
+through a private or protected base, and conversion to an inaccessible base),
+missing default constructors, reference binding errors, non-constant array bounds.
+A construct the compiler cannot translate is always an error: no assembly is
+written for it. See `test/errors/` and `test/ir_phase/semantic_*` for examples.

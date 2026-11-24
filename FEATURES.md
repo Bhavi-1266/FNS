@@ -323,11 +323,11 @@ passed and returned by value.
 
 ### 4.3 Inheritance and virtual functions — tests 17, 29
 
-**Supported:** single public inheritance (`class D : public B`), multi-level
-chains, base-class constructor calls in initialiser lists, virtual functions,
+**Supported:** single inheritance with `public`, `protected` or `private` base
+access, multi-level chains, base-class constructor calls in initialiser lists, virtual functions,
 overriding, pure virtual functions and abstract classes, virtual destructors,
 explicit `Base::method()` calls, and polymorphism through pointers and references.
-Multiple, virtual, private and protected inheritance are not supported (README 9.6).
+Multiple and virtual inheritance are not supported (README 9.6).
 
 **How:**
 - **Layout:** the base-class fields come first, so a `Derived*` is also a valid `Base*`.
@@ -377,17 +377,26 @@ Every member access (field, method, constructor) checks that:
 - **protected** members can be used from inside the class or a derived class;
 - **private** members can be used only from inside the class.
 
-`class` members default to `private` and `struct` members to `public`. Inherited
-members keep the access level and declaring class they had in the base, so the
-protected rule works through derived classes. The checks also cover constructors
-and destructors. Violations are compile errors, which `test/errors/e05_access.cpp` checks:
+`class` members default to `private` and `struct` members to `public`.
+
+The base-class access (`class D : public/protected/private B`) is stored on the
+class. A member is checked by its access *as a member of the class it is named
+through*: walking from the base down to that class, a `protected` base turns
+public members into protected ones, a `private` base makes public and protected
+members private, and a member that was already private becomes inaccessible
+(`access_in` in `codegen.cpp`). Converting a `D*`/`D&` to an inaccessible base is
+an error too. The checks also cover constructors and destructors. Violations are
+compile errors, which `test/errors/e05_access.cpp` checks:
 
 ```
 Errors:
   line 17: member 'balance' is not accessible here
-  line 23: member 'balance' is not accessible here
-  line 24: member 'audit' is not accessible here
-  line 25: member 'id' is not accessible here
+  line 27: member 'get' is not accessible here
+  line 32: member 'get' is not accessible here
+  line 33: 'Account' is an inaccessible base of 'Locked'
+  line 35: member 'balance' is not accessible here
+  line 36: member 'audit' is not accessible here
+  line 37: member 'id' is not accessible here
 ```
 
 ### 4.5 Variable-argument functions — test 13
@@ -709,8 +718,11 @@ there are errors (exit status 1). Checks include:
 - **Statements:** `break`/`continue` outside a loop, `goto` to an undefined label,
   duplicate labels, duplicate `case` values, and non-constant case labels.
 - **const:** assigning to a `const` variable.
-- **Classes:** access violations (public/private/protected), unknown members,
+- **Classes:** access violations (public/private/protected, including through a
+  private or protected base), conversion to an inaccessible base, unknown members,
   no matching constructor, and a missing default constructor.
+- **Untranslatable code:** a construct the compiler cannot translate to MIPS is an
+  error, never a warning, so no assembly file is written for it.
 
 The negative tests `test/errors/e01_syntax.c` … `e05_access.cpp` check that these
 errors are reported, with the exact expected messages in `test/errors/expected/`.

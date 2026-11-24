@@ -191,7 +191,8 @@ static Node *func_node(NK kind, Node *params, Node *ctor_init, Node *body) {
 
 %type <str> string_seq
 %type <type> base_type builtin_only_type type_spec aggregate_spec cast_type sizeof_type lambda_return_opt
-%type <str> ident_opt class_base_opt assign_op
+%type <str> ident_opt assign_op
+%type <node> class_base_opt
 %type <decl> declarator
 %type <num> type_qualifiers_opt sign_spec pointer_opt ref_opt access_specifier
 %type <dims> array_suffix_opt
@@ -319,8 +320,8 @@ ident_opt
 
 class_base_opt
     : /* empty */                           { $$ = nullptr; }
-    | COLON access_specifier IDENTIFIER     { $$ = $3; }
-    | COLON access_specifier TYPE_NAME      { $$ = $3; }
+    | COLON access_specifier IDENTIFIER     { $$ = mk(NK::Access, $3); $$->access = $2; }
+    | COLON access_specifier TYPE_NAME      { $$ = mk(NK::Access, $3); $$->access = $2; }
     ;
 
 access_specifier
@@ -405,7 +406,8 @@ aggregate_spec
             $$->name = $2;
             $$->agg_def = mk(NK::AggDef, $2);
             $$->agg_def->type = $$;
-            $$->agg_def->str2 = $3 ? $3 : "";
+            $$->agg_def->str2 = $3 ? $3->str : "";
+            $$->agg_def->access = $3 ? $3->access : 0;
             $$->agg_def->kids = $6->kids;
         }
     | CLASS_KW TYPE_NAME class_base_opt LBRACE member_list_opt RBRACE
@@ -414,7 +416,8 @@ aggregate_spec
             $$->name = $2;
             $$->agg_def = mk(NK::AggDef, $2);
             $$->agg_def->type = $$;
-            $$->agg_def->str2 = $3 ? $3 : "";
+            $$->agg_def->str2 = $3 ? $3->str : "";
+            $$->agg_def->access = $3 ? $3->access : 0;
             $$->agg_def->kids = $5->kids;
         }
     ;

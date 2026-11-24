@@ -1,6 +1,9 @@
 Errors:
   line 17: member 'balance' is not accessible here
-  line 23: member 'balance' is not accessible here
-  line 24: member 'audit' is not accessible here
-  line 25: member 'id' is not accessible here
-No assembly generated (4 error(s)).
+  line 27: member 'get' is not accessible here
+  line 32: member 'get' is not accessible here
+  line 33: 'Account' is an inaccessible base of 'Locked'
+  line 35: member 'balance' is not accessible here
+  line 36: member 'audit' is not accessible here
+  line 37: member 'id' is not accessible here
+No assembly generated (7 error(s)).

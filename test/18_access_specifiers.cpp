@@ -35,7 +35,31 @@ public:
     int peek() { return hidden; }
 };
 
+// private and protected inheritance: the base's public members become private /
+// protected in the derived class, so only the derived class (and, for protected,
+// its own derived classes) can use them.
+class Counter {
+public:
+    int n = 0;
+    void bump() { n++; }
+};
+class Hidden : private Counter {
+public:
+    int twice() { bump(); bump(); return n; }
+};
+class Shared : protected Counter {
+public:
+    int once() { bump(); return n; }
+};
+class Shared2 : public Shared {
+public:
+    int thrice() { bump(); bump(); return once(); }
+};
+
 int main() {
+    Hidden hd;
+    Shared2 s2;
+    printf("private base: %d  protected base: %d\n", hd.twice(), s2.thrice());
     Person p("Riya", 30);
     p.birthday();
     printf("age=%d code=%d\n", p.get_age(), p.code());

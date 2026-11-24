@@ -18,7 +18,19 @@ public:
     int ident() { return id; }         // protected: fine inside a derived class
 };
 
+class Locked : private Account {
+public:
+    int ok() { return get(); }         // fine: inside the derived class
+};
+class Deeper : public Locked {
+public:
+    int bad() { return get(); }        // get() is private in Locked
+};
+
 int main() {
+    Locked l;
+    l.get();                           // public in Account, private through the private base
+    Account *ap = &l;                  // inaccessible base
     Account a;
     a.balance = 100;                   // private member
     a.audit();                         // private method

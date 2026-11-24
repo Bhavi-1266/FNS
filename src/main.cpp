@@ -125,6 +125,9 @@ int main(int argc, char **argv) {
         }
     }
 
+    // a construct the front end could not lower is an error, not a note
+    for (const auto &n : mod.notes) mod.errors.push_back(n);
+
     if (opt.want_ir) {
         std::ofstream irf(opt.ir_out);
         mod.write(irf);
@@ -138,10 +141,18 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    std::ostringstream code;
+    std::vector<std::string> unsupported;
+    fns::emit_mips(mod, code, unsupported, opt.runtime);
+    if (!unsupported.empty()) {
+        std::cout << "Errors:\n";
+        for (const auto &u : unsupported) std::cout << "  not supported by the MIPS back end: " << u << "\n";
+        std::cout << "No assembly generated (" << unsupported.size() << " error(s)).\n";
+        return 1;
+    }
     std::ofstream out(opt.asm_out);
     if (!out) { perror(opt.asm_out.c_str()); return 2; }
-    std::vector<std::string> unsupported;
-    fns::emit_mips(mod, out, unsupported, opt.runtime);
+    out << code.str();
     out.close();
 
     std::cout << "Assembly written to " << opt.asm_out << " (" << mod.funcs.size()
@@ -166,14 +177,5 @@ int main(int argc, char **argv) {
                       << opt.asm_out << "\n";
     }
     if (opt.want_ir) std::cout << "IR written to " << opt.ir_out << "\n";
-    if (!unsupported.empty()) {
-        std::cout << "Warning: " << unsupported.size()
-                  << " construct(s) not supported by the MIPS backend:\n";
-        for (const auto &u : unsupported) std::cout << "  - " << u << "\n";
-    }
-    if (!mod.notes.empty()) {
-        std::cout << "Front-end notes:\n";
-        for (const auto &n : mod.notes) std::cout << "  - " << n << "\n";
-    }
     return 0;
 }

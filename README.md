@@ -106,7 +106,8 @@ For each program `test/NN_name.c|cpp`, `run.sh`:
 2. runs it on spim in `test/output/run/` with stdin from `test/input/NN_name.in` and
    arguments from `test/args/NN_name.args` when present;
 3. saves the output to `test/output/NN_name.out` and compares it with
-   `test/expected/NN_name.expected`.
+   `test/expected/NN_name.expected`; the test also fails if spim times out or
+   exits with a non-zero status, even when the output matches.
 
 Every valid test source directly under `test/` gets its own optimized IR file,
 `test/output/<name>.ir`, whether or not `--show-ir` is used. New `.c` and `.cpp`

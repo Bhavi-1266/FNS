@@ -119,6 +119,7 @@ for src in "$TESTDIR"/*.c "$TESTDIR"/*.cpp; do
     run_dir=$(mktemp -d "$OUTDIR/run/${stem}.XXXXXX")
     (cd "$run_dir" && $TIMEOUT "$SIM" -file "../../$stem.s" $args < "$in" 2>&1) \
         | strip_banner > "$OUTDIR/$stem.out"
+    sim_rc=${PIPESTATUS[0]}     # the simulator's own exit status, not strip_banner's
 
     # SPIM 9.1 on macOS accepts the command but drops arguments after -file.
     # Retry this test with an equivalent startup wrapper so argc/argv lowering
@@ -127,6 +128,7 @@ for src in "$TESTDIR"/*.c "$TESTDIR"/*.cpp; do
         python3 tools/spim_args.py "$asm" "$run_dir/with_args.s" "test/args/$stem.args"
         (cd "$run_dir" && $TIMEOUT "$SIM" -file with_args.s < "$in" 2>&1) \
             | strip_banner > "$OUTDIR/$stem.out"
+        sim_rc=${PIPESTATUS[0]}
     fi
 
     if [ -n "$LOG" ]; then
@@ -139,7 +141,13 @@ for src in "$TESTDIR"/*.c "$TESTDIR"/*.cpp; do
         say "?     $name  (no expected output; got test/output/$stem.out)"
         continue
     fi
-    if diff -q "$exp" "$OUTDIR/$stem.out" >/dev/null; then
+    # A matching output is not enough: a run that timed out or made the simulator
+    # exit with an error after printing everything must still fail.
+    if [ "$sim_rc" -ne 0 ]; then
+        if [ "$sim_rc" -eq 124 ]; then why="timed out"; else why="simulator exited with status $sim_rc"; fi
+        say "FAIL  $name   ($why)"
+        fail=$((fail + 1)); failed="$failed $name"
+    elif diff -q "$exp" "$OUTDIR/$stem.out" >/dev/null; then
         say "PASS  $name"
         pass=$((pass + 1))
     else

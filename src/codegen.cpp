@@ -2400,11 +2400,7 @@ void CodeGen::gen_do(Node *n, bool until) {
 void CodeGen::gen_switch(Node *n) {
     Val switch_value = gen_expr(n->kids[0]);
     TypeSpec switch_type = switch_value.type;
-    bool integral_switch = switch_type.ptr == 0 && switch_type.dims.empty() &&
-        (switch_type.base == Base::Bool || switch_type.base == Base::Char ||
-         switch_type.base == Base::Short || switch_type.base == Base::Int ||
-         switch_type.base == Base::Long || switch_type.base == Base::Enum);
-    if (!integral_switch) error(n->line, "switch expression must have an integer or enum type");
+    if (!is_integer(switch_type)) error(n->line, "switch expression must have an integer or enum type");
     TypeSpec promoted_type = promote(switch_type, int_type());
     std::string sw = convert(rvalue(switch_value), switch_type, promoted_type);
     std::string lend = new_label();
@@ -3049,11 +3045,6 @@ Val CodeGen::gen_binary(Node *n) {
         return out;
     }
 
-    auto is_integer = [](const TypeSpec &t) {
-        return t.ptr == 0 && t.dims.empty() &&
-               (t.base == Base::Bool || t.base == Base::Char || t.base == Base::Short ||
-                t.base == Base::Int || t.base == Base::Long || t.base == Base::Enum);
-    };
     auto is_numeric = [&](const TypeSpec &t) { return is_float(t) || is_integer(t); };
 
     if (((op == "+" && (lp || rp)) || (op == "-" && lp && !rp)) && !(lp && rp)) {
@@ -3149,7 +3140,7 @@ Val CodeGen::gen_incdec(Node *target, const std::string &op, bool prefix) {
     std::string step = "1";
     if (is_pointer(t)) step = itos(size_of(elem_type(t)));
     TypeSpec op_type = t;
-    if (t.ptr == 0 && (t.base == Base::Bool || t.base == Base::Char || t.base == Base::Short || t.base == Base::Enum))
+    if (is_small_integer(t))
         op_type = int_type();
     Val out;
     out.k = Val::RVal;
@@ -3236,7 +3227,7 @@ Val CodeGen::gen_unary(Node *n) {
     TypeSpec t = inner.type;
     t.ref = false;
     if (op == "+") {
-        if (t.base == Base::Bool || t.base == Base::Char || t.base == Base::Short || t.base == Base::Enum) {
+        if (is_small_integer(t)) {
             TypeSpec promoted = int_type();
             out.place = convert(v, t, promoted);
             out.type = promoted;
@@ -3247,10 +3238,7 @@ Val CodeGen::gen_unary(Node *n) {
         return out;
     }
     if (op == "-") {
-        bool integral = t.ptr == 0 && t.dims.empty() &&
-            (t.base == Base::Bool || t.base == Base::Char || t.base == Base::Short ||
-             t.base == Base::Int || t.base == Base::Long || t.base == Base::Enum);
-        if (!is_float(t) && !integral) {
+        if (!is_float(t) && !is_integer(t)) {
             error(n->line, "unary '-' requires an arithmetic operand");
             out.place = "0";
             out.type = int_type();
@@ -3271,9 +3259,7 @@ Val CodeGen::gen_unary(Node *n) {
         return out;
     }
     if (op == "!") {
-        if (!(is_pointer(t) || is_float(t) || (t.ptr == 0 && t.dims.empty() &&
-              (t.base == Base::Bool || t.base == Base::Char || t.base == Base::Short ||
-               t.base == Base::Int || t.base == Base::Long || t.base == Base::Enum))))
+        if (!(is_pointer(t) || is_float(t) || is_integer(t)))
             error(n->line, "logical not requires a scalar operand");
         out.place = new_temp();
         emit(out.place + " = ! " + v, "int");
@@ -3281,9 +3267,7 @@ Val CodeGen::gen_unary(Node *n) {
         return out;
     }
     if (op == "~") {
-        if (t.ptr != 0 || !t.dims.empty() || is_float(t) ||
-            !(t.base == Base::Bool || t.base == Base::Char || t.base == Base::Short ||
-              t.base == Base::Int || t.base == Base::Long || t.base == Base::Enum)) {
+        if (!is_integer(t)) {
             error(n->line, "bitwise not requires an integer operand");
             out.place = "0";
             out.type = int_type();
@@ -3368,10 +3352,7 @@ Val CodeGen::gen_assign(Node *n) {
     std::string rv = rvalue(r);
     std::string nv;
     if (is_pointer(lt) && (op == "+" || op == "-")) {
-        bool integer_offset = r.type.ptr == 0 && r.type.dims.empty() &&
-            (r.type.base == Base::Bool || r.type.base == Base::Char || r.type.base == Base::Short ||
-             r.type.base == Base::Int || r.type.base == Base::Long || r.type.base == Base::Enum);
-        if (!integer_offset) {
+        if (!is_integer(r.type)) {
             error(n->line, "pointer compound assignment requires an integer offset");
             return lhs;
         }
@@ -3410,26 +3391,21 @@ Val CodeGen::gen_cond(Node *n) {
     bt.ref = false;
     if (is_array(at)) at = pointer_to(at);
     if (is_array(bt)) bt = pointer_to(bt);
-    auto integer = [](const TypeSpec &t) {
-        return t.ptr == 0 && t.dims.empty() &&
-               (t.base == Base::Bool || t.base == Base::Char || t.base == Base::Short ||
-                t.base == Base::Int || t.base == Base::Long || t.base == Base::Enum);
-    };
     TypeSpec t;
     bool aggregate_result = false;
     bool void_result = false;
     if (is_aggregate(at) && is_aggregate(bt) && at.base == bt.base && at.name == bt.name) {
         t = at;
         aggregate_result = true;
-    } else if ((is_float(at) || integer(at)) && (is_float(bt) || integer(bt))) {
+    } else if ((is_float(at) || is_integer(at)) && (is_float(bt) || is_integer(bt))) {
         t = promote(at, bt);
     } else if (is_pointer(at) && is_pointer(bt)) {
         t = at;
-    } else if (is_pointer(at) && integer(bt)) {
+    } else if (is_pointer(at) && is_integer(bt)) {
         long v;
         if (eval_const_int(n->kids[2], v) && v == 0) t = at;
         else error(n->line, "conditional operands have incompatible pointer types");
-    } else if (is_pointer(bt) && integer(at)) {
+    } else if (is_pointer(bt) && is_integer(at)) {
         long v;
         if (eval_const_int(n->kids[1], v) && v == 0) t = bt;
         else error(n->line, "conditional operands have incompatible pointer types");
@@ -3603,9 +3579,7 @@ std::vector<std::string> CodeGen::eval_args(FuncInfo *fi, Node *args_in, int ski
             else if (fi && fi->variadic && a.type.base == Base::Float && a.type.ptr == 0) {
                 TypeSpec d; d.base = Base::Double;
                 v = convert(v, a.type, d);
-            } else if (fi && fi->variadic && a.type.ptr == 0 && a.type.dims.empty() &&
-                       (a.type.base == Base::Bool || a.type.base == Base::Char ||
-                        a.type.base == Base::Short || a.type.base == Base::Enum)) {
+            } else if (fi && fi->variadic && is_small_integer(a.type)) {
                 TypeSpec promoted = int_type();
                 v = convert(v, a.type, promoted);
             }
@@ -3671,8 +3645,7 @@ int CodeGen::conversion_score(const TypeSpec &param_in, const TypeSpec &arg_in) 
     if (scalar_pair) {
         if (p.base == a.base && p.is_unsigned == a.is_unsigned && p.name == a.name) return 3;   // exact
         // integral promotion (bool/char/short/enum -> int) and float -> double
-        bool small_int = a.base == Base::Bool || a.base == Base::Char || a.base == Base::Short || a.base == Base::Enum;
-        if (p.base == Base::Int && !p.is_unsigned && small_int) return 2;
+        if (p.base == Base::Int && !p.is_unsigned && is_small_integer(a)) return 2;
         if (p.base == Base::Double && a.base == Base::Float) return 2;
         if ((is_integer(p) || is_float(p)) && (is_integer(a) || is_float(a))) return 1;      // conversion
     }
@@ -3921,11 +3894,7 @@ Val CodeGen::gen_index(Node *n) {
         et = int_type();
     }
     Val idx = gen_expr(n->kids[1]);
-    bool integer_index = idx.type.ptr == 0 && idx.type.dims.empty() &&
-        (idx.type.base == Base::Bool || idx.type.base == Base::Char ||
-         idx.type.base == Base::Short || idx.type.base == Base::Int ||
-         idx.type.base == Base::Long || idx.type.base == Base::Enum);
-    if (!integer_index) error(n->kids[1]->line, "array subscript must have an integer type");
+    if (!is_integer(idx.type)) error(n->kids[1]->line, "array subscript must have an integer type");
     if (size_of(et) <= 0) { error(n->line, "cannot subscript an array of incomplete or void type"); et = int_type(); }
     std::string iv = rvalue(idx);
     int es = size_of(et);
@@ -4021,11 +3990,7 @@ Val CodeGen::gen_new(Node *n) {
     out.type = pointer_to(t);
     if (n->flags & F_ARRAY) {
         Val cnt = gen_expr(n->kids[0]);
-        bool integer_count = cnt.type.ptr == 0 && cnt.type.dims.empty() &&
-            (cnt.type.base == Base::Bool || cnt.type.base == Base::Char ||
-             cnt.type.base == Base::Short || cnt.type.base == Base::Int ||
-             cnt.type.base == Base::Long || cnt.type.base == Base::Enum);
-        if (!integer_count) error(n->line, "array allocation count must have an integer type");
+        if (!is_integer(cnt.type)) error(n->line, "array allocation count must have an integer type");
         std::string count = convert(rvalue(cnt), cnt.type, int_type());
         Val allocation = emit_call(new_fn, "__fns_new", {count, itos(size_of(t)), "4"}, false);
         emit("*" + allocation.place + " = " + count, "int");
@@ -4153,6 +4118,12 @@ bool CodeGen::is_integer(const TypeSpec &t) const {
     return t.ptr == 0 && t.dims.empty() &&
            (t.base == Base::Bool || t.base == Base::Char || t.base == Base::Short ||
             t.base == Base::Int || t.base == Base::Long || t.base == Base::Enum);
+}
+
+bool CodeGen::is_small_integer(const TypeSpec &t) const {
+    return t.ptr == 0 && t.dims.empty() &&
+           (t.base == Base::Bool || t.base == Base::Char ||
+            t.base == Base::Short || t.base == Base::Enum);
 }
 
 bool CodeGen::is_scalar(const TypeSpec &t) const {

@@ -38,13 +38,8 @@ static char *upper_dup(const char *s) {
 static char *g_current_type = nullptr;
 static char *g_pending_name = nullptr;
 
-static void record(const char *name, const char *kind) {
-    if (!name) return;
-    fns::DeclTable::instance().record(name, kind ? kind : "UNKNOWN");
-}
-
 static void record_type(const char *name, const char *kind) {
-    record(name, kind);
+    (void)kind;
     if (name) fns::DeclTable::instance().mark_type_name(name);
 }
 
@@ -468,11 +463,11 @@ aggregate_spec
     ;
 
 enumerator_list
-    : IDENTIFIER                          { record($1, "ENUMERATOR"); $$ = list_add(nullptr, mk(NK::Enumerator, $1)); }
-    | IDENTIFIER ASSIGN assignment_expr    { record($1, "ENUMERATOR"); $$ = list_add(nullptr, mk1(NK::Enumerator, $3, $1)); }
-    | enumerator_list COMMA IDENTIFIER    { record($3, "ENUMERATOR"); $$ = list_add($1, mk(NK::Enumerator, $3)); }
+    : IDENTIFIER                          { $$ = list_add(nullptr, mk(NK::Enumerator, $1)); }
+    | IDENTIFIER ASSIGN assignment_expr    { $$ = list_add(nullptr, mk1(NK::Enumerator, $3, $1)); }
+    | enumerator_list COMMA IDENTIFIER    { $$ = list_add($1, mk(NK::Enumerator, $3)); }
     | enumerator_list COMMA IDENTIFIER ASSIGN assignment_expr
-                                           { record($3, "ENUMERATOR"); $$ = list_add($1, mk1(NK::Enumerator, $5, $3)); }
+                                           { $$ = list_add($1, mk1(NK::Enumerator, $5, $3)); }
     ;
 
 /* Casts: builtin types (with sign specifiers), pointers to typedef names, and
@@ -543,26 +538,24 @@ paren_declarator
 init_declarator
     : declarator
         {
-            record($1->name.c_str(), g_current_type);
             TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->rref = $1->rref; t->dims = $1->dims;
             $$ = var_decl($1->name, t, nullptr);
         }
     | declarator ASSIGN initializer
         {
-            record($1->name.c_str(), g_current_type);
             TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->rref = $1->rref; t->dims = $1->dims;
             $$ = var_decl($1->name, t, $3);
         }
     | declarator LPAREN arg_list RPAREN
         {   /* direct-initialisation: Point p(1, 2);  int x(5); */
-            record($1->name.c_str(), g_current_type);
+
             TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->rref = $1->rref; t->dims = $1->dims;
             $3->kind = NK::InitList; $3->flags |= fns::F_CTOR;
             $$ = var_decl($1->name, t, $3);
         }
     | declarator brace_init
         {   /* list-initialisation: Point p{1, 2};  int x{5}; */
-            record($1->name.c_str(), g_current_type);
+
             TypeSpec *t = new TypeSpec; t->ptr = $1->ptr; t->ref = $1->ref; t->rref = $1->rref; t->dims = $1->dims;
             $2->flags |= fns::F_VALUE_INIT;
             $$ = var_decl($1->name, t, $2);
@@ -644,13 +637,13 @@ simple_decl
 /* declarations with a parenthesised declarator (function pointers, pointers to arrays) */
 simple_paren_decl
     : type_spec paren_declarator LPAREN param_list_opt RPAREN
-        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($2->name, fnptr_decl($1, $2, $4), nullptr)); }
+        { $$ = list_add(nullptr, var_decl($2->name, fnptr_decl($1, $2, $4), nullptr)); }
     | type_spec paren_declarator LPAREN param_list_opt RPAREN ASSIGN initializer
-        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($2->name, fnptr_decl($1, $2, $4), $7)); }
+        { $$ = list_add(nullptr, var_decl($2->name, fnptr_decl($1, $2, $4), $7)); }
     | type_spec paren_declarator array_suffix_opt
-        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($2->name, paren_decl_type($1, $2, $3), nullptr)); }
+        { $$ = list_add(nullptr, var_decl($2->name, paren_decl_type($1, $2, $3), nullptr)); }
     | type_spec paren_declarator array_suffix_opt ASSIGN initializer
-        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = list_add(nullptr, var_decl($2->name, paren_decl_type($1, $2, $3), $5)); }
+        { $$ = list_add(nullptr, var_decl($2->name, paren_decl_type($1, $2, $3), $5)); }
     ;
 
 declaration_stmt
@@ -662,13 +655,12 @@ declaration_stmt
 param
     : type_spec declarator
         {
-            record($2->name.c_str(), $1->kind_str.c_str());
             $$ = mk(NK::Param, $2->name);
             $$->type = with_decl($1, $2->ptr, $2->rref ? 2 : $2->ref, &$2->dims);
         }
     | type_spec declarator ASSIGN assignment_expr
         {   /* C++ default argument */
-            record($2->name.c_str(), $1->kind_str.c_str());
+
             $$ = mk(NK::Param, $2->name);
             $$->type = with_decl($1, $2->ptr, $2->rref ? 2 : $2->ref, &$2->dims);
             $$->kids.push_back($4);
@@ -686,9 +678,9 @@ param
     | type_spec pointer_opt ANDAND
         { $$ = mk(NK::Param); $$->type = with_decl($1, $2, 2, nullptr); }     /* unnamed T&& */
     | type_spec paren_declarator LPAREN param_list_opt RPAREN
-        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = mk(NK::Param, $2->name); $$->type = fnptr_decl($1, $2, $4); }
+        { $$ = mk(NK::Param, $2->name); $$->type = fnptr_decl($1, $2, $4); }
     | type_spec paren_declarator array_suffix_opt
-        { record($2->name.c_str(), $1->kind_str.c_str()); $$ = mk(NK::Param, $2->name); $$->type = paren_decl_type($1, $2, $3); }
+        { $$ = mk(NK::Param, $2->name); $$->type = paren_decl_type($1, $2, $3); }
     | ELLIPSIS
         { $$ = mk(NK::Ellipsis); }
     ;
@@ -759,7 +751,6 @@ toplevel_decl
 fnptr_function_head
     : type_spec LPAREN STAR pointer_opt IDENTIFIER LPAREN param_list_opt RPAREN RPAREN LPAREN param_list_opt RPAREN
         {
-            record($5, "PROCEDURE");
             $$ = func_node(NK::FuncDecl, $7, nullptr, nullptr);
             $$->str = $5;
             $$->type = fnptr_type($1, $11);
@@ -770,14 +761,14 @@ fnptr_function_head
 
 toplevel_decl_tail
     : LPAREN param_list_opt RPAREN trailing_qualifiers_opt SEMI
-        { record(g_pending_name, "PROCEDURE"); $$ = func_node(NK::FuncDecl, $2, nullptr, nullptr); }
+        { $$ = func_node(NK::FuncDecl, $2, nullptr, nullptr); }
     | LPAREN param_list_opt RPAREN trailing_qualifiers_opt ASSIGN INTEGER SEMI
-        { record(g_pending_name, "PROCEDURE"); $$ = func_node(NK::FuncDecl, $2, nullptr, nullptr); $$->flags |= fns::F_PURE; }
+        { $$ = func_node(NK::FuncDecl, $2, nullptr, nullptr); $$->flags |= fns::F_PURE; }
     | LPAREN param_list_opt RPAREN trailing_qualifiers_opt ctor_init_opt compound_stmt
-        { record(g_pending_name, "PROCEDURE"); $$ = func_node(NK::FuncDef, $2, $5, $6); }
+        { $$ = func_node(NK::FuncDef, $2, $5, $6); }
     | LPAREN arg_list RPAREN more_declarators_opt SEMI
         {   /* a global object constructed with arguments: Point origin(0, 0); */
-            record(g_pending_name, g_current_type);
+
             $2->kind = NK::InitList; $2->flags |= fns::F_CTOR;
             $$ = mk(NK::DeclList);
             $$->kids.push_back(var_decl("", new TypeSpec, $2));
@@ -785,7 +776,6 @@ toplevel_decl_tail
         }
     | array_suffix_opt more_declarators_opt SEMI
         {
-            record(g_pending_name, g_current_type);
             TypeSpec *t = new TypeSpec; t->dims = *$1;
             $$ = mk(NK::DeclList);
             $$->kids.push_back(var_decl("", t, nullptr));
@@ -793,7 +783,6 @@ toplevel_decl_tail
         }
     | array_suffix_opt ASSIGN initializer more_declarators_opt SEMI
         {
-            record(g_pending_name, g_current_type);
             TypeSpec *t = new TypeSpec; t->dims = *$1;
             $$ = mk(NK::DeclList);
             $$->kids.push_back(var_decl("", t, $3));
@@ -810,22 +799,22 @@ more_declarators_opt
    only has to tell `Name(` from `Name x` / `Name *x` once the name has been read. */
 constructor_def
     : type_qualifiers_opt TYPE_NAME LPAREN param_list_opt RPAREN ctor_init_opt compound_stmt
-        { record($2, "PROCEDURE"); $$ = func_node(NK::FuncDef, $4, $6, $7); $$->str = $2; $$->flags |= fns::F_CTOR; }
+        { $$ = func_node(NK::FuncDef, $4, $6, $7); $$->str = $2; $$->flags |= fns::F_CTOR; }
     | type_qualifiers_opt TYPE_NAME LPAREN param_list_opt RPAREN SEMI
-        { record($2, "PROCEDURE"); $$ = func_node(NK::FuncDecl, $4, nullptr, nullptr); $$->str = $2; $$->flags |= fns::F_CTOR; }
+        { $$ = func_node(NK::FuncDecl, $4, nullptr, nullptr); $$->str = $2; $$->flags |= fns::F_CTOR; }
     ;
 
 destructor_def
     : BITNOT TYPE_NAME LPAREN RPAREN compound_stmt
         {
             std::string n = std::string("~") + $2;
-            record(dup_str(n), "PROCEDURE");
+
             $$ = func_node(NK::FuncDef, nullptr, nullptr, $5); $$->str = $2; $$->flags |= fns::F_DTOR;
         }
     | BITNOT TYPE_NAME LPAREN RPAREN SEMI
         {
             std::string n = std::string("~") + $2;
-            record(dup_str(n), "PROCEDURE");
+
             $$ = func_node(NK::FuncDecl, nullptr, nullptr, nullptr); $$->str = $2; $$->flags |= fns::F_DTOR;
         }
     ;

@@ -1,3 +1,0 @@
-Compiling: test/30_interactive_io.c
-Assembly written to test/output/30_interactive_io.s (1 function(s))
-IR written to test/output/30_interactive_io.ir

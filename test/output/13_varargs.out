@@ -1,8 +1,0 @@
-0 6 210
-2.000 2.625
-22
-red, green, blue
-solo
-int -45, char k, str abc, dbl 2.500, pct %
-float 1.250 char-promoted 65
-[INFO] 4 items, ok

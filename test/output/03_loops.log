@@ -1,3 +1,0 @@
-Compiling: test/03_loops.c
-Assembly written to test/output/03_loops.s (1 function(s))
-IR written to test/output/03_loops.ir

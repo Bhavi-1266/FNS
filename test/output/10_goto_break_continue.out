@@ -1,9 +1,0 @@
-0 1 2 3 4 
-skipped ahead
-found=1 at r=2 c=3
-1 2 4 5 7 
-w2 w4 w6 w8 
-d1 d3 d4 
-(0,0)(1,0)(2,0)
-s0 after0 after2 s3 after3 
-n=2 n=0 

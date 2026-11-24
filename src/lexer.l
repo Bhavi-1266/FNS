@@ -9,16 +9,11 @@
 #include "decl_table.hpp"
 #include "parser.tab.hpp"
 
-#include "keywords.hpp"
 #include "symbol_table.hpp"
-#include "token.hpp"
 
 extern int yylineno;
 /* set by main(): C++-only keywords are ordinary identifiers in a .c file */
 bool fns_cplusplus = true;
-
-#define TOKEN(type, text) \
-    fns::SymbolTable::instance().record_token((type), (text), yylineno)
 
 %}
 
@@ -40,62 +35,61 @@ FLOATLIT     (({DIGIT}+\.{DIGIT}*|{DIGIT}*\.{DIGIT}+){EXP}?|{DIGIT}+{EXP}){FLOAT
 "//".*                          { }
 "/*"([^*]|\*+[^*/])*\*+"/"     { }
 "#".* {
-    TOKEN(fns::TokenType::PREPROCESSOR, yytext);
     yylval.str = strdup(yytext);
     return PREPROC;
 }
 
-"int"        { TOKEN(fns::TokenType::KEYWORD, yytext); return INT_KW; }
-"float"      { TOKEN(fns::TokenType::KEYWORD, yytext); return FLOAT_KW; }
-"double"     { TOKEN(fns::TokenType::KEYWORD, yytext); return DOUBLE_KW; }
-"char"       { TOKEN(fns::TokenType::KEYWORD, yytext); return CHAR_KW; }
-"void"       { TOKEN(fns::TokenType::KEYWORD, yytext); return VOID_KW; }
-"bool"       { TOKEN(fns::TokenType::KEYWORD, yytext); return BOOL_KW; }
-"long"       { TOKEN(fns::TokenType::KEYWORD, yytext); return LONG_KW; }
-"short"      { TOKEN(fns::TokenType::KEYWORD, yytext); return SHORT_KW; }
-"unsigned"   { TOKEN(fns::TokenType::KEYWORD, yytext); return UNSIGNED_KW; }
-"signed"     { TOKEN(fns::TokenType::KEYWORD, yytext); return SIGNED_KW; }
-"auto"       { TOKEN(fns::TokenType::KEYWORD, yytext); return AUTO_KW; }
-"const"      { TOKEN(fns::TokenType::KEYWORD, yytext); return CONST_KW; }
-"static"     { TOKEN(fns::TokenType::KEYWORD, yytext); return STATIC_KW; }
-"typedef"    { TOKEN(fns::TokenType::KEYWORD, yytext); return TYPEDEF_KW; }
-"struct"     { TOKEN(fns::TokenType::KEYWORD, yytext); return STRUCT_KW; }
-"union"      { TOKEN(fns::TokenType::KEYWORD, yytext); return UNION_KW; }
-"enum"       { TOKEN(fns::TokenType::KEYWORD, yytext); return ENUM_KW; }
-"class"      { if (!fns_cplusplus) { TOKEN(fns::TokenType::IDENTIFIER, yytext); yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } TOKEN(fns::TokenType::KEYWORD, yytext); return CLASS_KW; }
-"public"     { if (!fns_cplusplus) { TOKEN(fns::TokenType::IDENTIFIER, yytext); yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } TOKEN(fns::TokenType::KEYWORD, yytext); return PUBLIC_KW; }
-"private"    { if (!fns_cplusplus) { TOKEN(fns::TokenType::IDENTIFIER, yytext); yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } TOKEN(fns::TokenType::KEYWORD, yytext); return PRIVATE_KW; }
-"protected"  { if (!fns_cplusplus) { TOKEN(fns::TokenType::IDENTIFIER, yytext); yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } TOKEN(fns::TokenType::KEYWORD, yytext); return PROTECTED_KW; }
-"virtual"    { if (!fns_cplusplus) { TOKEN(fns::TokenType::IDENTIFIER, yytext); yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } TOKEN(fns::TokenType::KEYWORD, yytext); return VIRTUAL_KW; }
+"int"        { return INT_KW; }
+"float"      { return FLOAT_KW; }
+"double"     { return DOUBLE_KW; }
+"char"       { return CHAR_KW; }
+"void"       { return VOID_KW; }
+"bool"       { return BOOL_KW; }
+"long"       { return LONG_KW; }
+"short"      { return SHORT_KW; }
+"unsigned"   { return UNSIGNED_KW; }
+"signed"     { return SIGNED_KW; }
+"auto"       { return AUTO_KW; }
+"const"      { return CONST_KW; }
+"static"     { return STATIC_KW; }
+"typedef"    { return TYPEDEF_KW; }
+"struct"     { return STRUCT_KW; }
+"union"      { return UNION_KW; }
+"enum"       { return ENUM_KW; }
+"class"      { if (!fns_cplusplus) { yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } return CLASS_KW; }
+"public"     { if (!fns_cplusplus) { yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } return PUBLIC_KW; }
+"private"    { if (!fns_cplusplus) { yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } return PRIVATE_KW; }
+"protected"  { if (!fns_cplusplus) { yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } return PROTECTED_KW; }
+"virtual"    { if (!fns_cplusplus) { yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } return VIRTUAL_KW; }
 
-"if"         { TOKEN(fns::TokenType::KEYWORD, yytext); return IF_KW; }
-"else"       { TOKEN(fns::TokenType::KEYWORD, yytext); return ELSE_KW; }
-"for"        { TOKEN(fns::TokenType::KEYWORD, yytext); return FOR_KW; }
-"while"      { TOKEN(fns::TokenType::KEYWORD, yytext); return WHILE_KW; }
-"do"         { TOKEN(fns::TokenType::KEYWORD, yytext); return DO_KW; }
-"until"      { TOKEN(fns::TokenType::KEYWORD, yytext); return UNTIL_KW; }
+"if"         { return IF_KW; }
+"else"       { return ELSE_KW; }
+"for"        { return FOR_KW; }
+"while"      { return WHILE_KW; }
+"do"         { return DO_KW; }
+"until"      { return UNTIL_KW; }
 
-"switch"     { TOKEN(fns::TokenType::KEYWORD, yytext); return SWITCH_KW; }
-"case"       { TOKEN(fns::TokenType::KEYWORD, yytext); return CASE_KW; }
-"default"    { TOKEN(fns::TokenType::KEYWORD, yytext); return DEFAULT_KW; }
+"switch"     { return SWITCH_KW; }
+"case"       { return CASE_KW; }
+"default"    { return DEFAULT_KW; }
 
-"break"      { TOKEN(fns::TokenType::KEYWORD, yytext); return BREAK_KW; }
-"continue"   { TOKEN(fns::TokenType::KEYWORD, yytext); return CONTINUE_KW; }
-"goto"       { TOKEN(fns::TokenType::KEYWORD, yytext); return GOTO_KW; }
-"return"     { TOKEN(fns::TokenType::KEYWORD, yytext); return RETURN_KW; }
+"break"      { return BREAK_KW; }
+"continue"   { return CONTINUE_KW; }
+"goto"       { return GOTO_KW; }
+"return"     { return RETURN_KW; }
 
-"new"        { if (!fns_cplusplus) { TOKEN(fns::TokenType::IDENTIFIER, yytext); yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } TOKEN(fns::TokenType::KEYWORD, yytext); return NEW_KW; }
-"delete"     { if (!fns_cplusplus) { TOKEN(fns::TokenType::IDENTIFIER, yytext); yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } TOKEN(fns::TokenType::KEYWORD, yytext); return DELETE_KW; }
-"sizeof"     { TOKEN(fns::TokenType::KEYWORD, yytext); return SIZEOF_KW; }
+"new"        { if (!fns_cplusplus) { yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } return NEW_KW; }
+"delete"     { if (!fns_cplusplus) { yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } return DELETE_KW; }
+"sizeof"     { return SIZEOF_KW; }
 
-"true"       { TOKEN(fns::TokenType::KEYWORD, yytext); return TRUE_KW; }
-"false"      { TOKEN(fns::TokenType::KEYWORD, yytext); return FALSE_KW; }
-"mutable"    { if (!fns_cplusplus) { TOKEN(fns::TokenType::IDENTIFIER, yytext); yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } TOKEN(fns::TokenType::KEYWORD, yytext); return MUTABLE_KW; }
-"nullptr"    { TOKEN(fns::TokenType::KEYWORD, yytext); return NULLPTR_KW; }
+"true"       { return TRUE_KW; }
+"false"      { return FALSE_KW; }
+"mutable"    { if (!fns_cplusplus) { yylval.str = strdup(yytext); return fns::DeclTable::instance().is_type_name(yytext) ? TYPE_NAME : IDENTIFIER; } return MUTABLE_KW; }
+"nullptr"    { return NULLPTR_KW; }
 
 "static_cast"|"const_cast"|"reinterpret_cast"|"dynamic_cast" {
     /* C++ named casts (ordinary identifiers in a .c file) */
-    TOKEN(fns_cplusplus ? fns::TokenType::KEYWORD : fns::TokenType::IDENTIFIER, yytext);
+
     yylval.str = strdup(yytext);
     if (!fns_cplusplus) return IDENTIFIER;
     return CXXCAST;
@@ -103,7 +97,7 @@ FLOATLIT     (({DIGIT}+\.{DIGIT}*|{DIGIT}*\.{DIGIT}+){EXP}?|{DIGIT}+{EXP}){FLOAT
 
 "std"[ \t]*"::"[ \t]*"move" {
     /* std::move(x): the only std:: function, turned into a builtin (x as an rvalue) */
-    TOKEN(fns::TokenType::IDENTIFIER, yytext);
+
     yylval.str = strdup("__fns_move");
     return IDENTIFIER;
 }
@@ -120,23 +114,21 @@ FLOATLIT     (({DIGIT}+\.{DIGIT}*|{DIGIT}*\.{DIGIT}+){EXP}?|{DIGIT}+{EXP}){FLOAT
             if (text[i] != ' ' && text[i] != '\t') member += text[i];
         if (member != cls && fns::DeclTable::instance().is_type_name(member)) {
             /* Outer::Inner names a nested class/struct/enum: the type itself */
-            TOKEN(fns::TokenType::IDENTIFIER, yytext);
+
             yylval.str = strdup(member.c_str());
             return TYPE_NAME;
         }
-        TOKEN(fns::TokenType::IDENTIFIER, yytext);
+
         yylval.str = strdup((cls + "::" + member).c_str());
         return SCOPED_NAME;
     }
     yyless((int)len);
-    TOKEN(fns::TokenType::IDENTIFIER, yytext);
+
     yylval.str = strdup(yytext);
     return IDENTIFIER;
 }
 
 {ID} {
-    TOKEN(fns::TokenType::IDENTIFIER, yytext);
-
     yylval.str = strdup(yytext);
 
     if (fns::DeclTable::instance().is_type_name(yytext)) {
@@ -147,92 +139,84 @@ FLOATLIT     (({DIGIT}+\.{DIGIT}*|{DIGIT}*\.{DIGIT}+){EXP}?|{DIGIT}+{EXP}){FLOAT
 }
 
 {FLOATLIT} {
-    TOKEN(fns::TokenType::FLOAT, yytext);
     yylval.str = strdup(yytext);
     return FLOATNUM;
 }
 
 {HEX} {
-    TOKEN(fns::TokenType::INTEGER, yytext);
     yylval.str = strdup(yytext);
     return INTEGER;
 }
 
 {OCTAL} {
-    TOKEN(fns::TokenType::INTEGER, yytext);
     yylval.str = strdup(yytext);
     return INTEGER;
 }
 
 {INTEGERNUM} {
-    TOKEN(fns::TokenType::INTEGER, yytext);
     yylval.str = strdup(yytext);
     return INTEGER;
 }
 
 \"(\\.|[^\\"])*\" {
-    TOKEN(fns::TokenType::STRING, yytext);
     yylval.str = strdup(yytext);
     return STRINGLIT;
 }
 
 '(\\.|[^\\'])+' {
-    TOKEN(fns::TokenType::CHAR, yytext);
     yylval.str = strdup(yytext);
     return CHARLIT;
 }
 
-"..." { TOKEN(fns::TokenType::ELLIPSIS, yytext); return ELLIPSIS; }
-"::"    { TOKEN(fns::TokenType::OPERATOR, yytext); return SCOPE; }
-"<<="   { TOKEN(fns::TokenType::OPERATOR, yytext); return SHLEQ; }
-">>="   { TOKEN(fns::TokenType::OPERATOR, yytext); return SHREQ; }
-"<<"    { TOKEN(fns::TokenType::OPERATOR, yytext); return SHL; }
-">>"    { TOKEN(fns::TokenType::OPERATOR, yytext); return SHR; }
-"&&"    { TOKEN(fns::TokenType::OPERATOR, yytext); return ANDAND; }
-"||"    { TOKEN(fns::TokenType::OPERATOR, yytext); return OROR; }
-"=="    { TOKEN(fns::TokenType::OPERATOR, yytext); return EQ; }
-"!="    { TOKEN(fns::TokenType::OPERATOR, yytext); return NEQ; }
-"<="    { TOKEN(fns::TokenType::OPERATOR, yytext); return LE; }
-">="    { TOKEN(fns::TokenType::OPERATOR, yytext); return GE; }
-"+="    { TOKEN(fns::TokenType::OPERATOR, yytext); return PLUSEQ; }
-"-="    { TOKEN(fns::TokenType::OPERATOR, yytext); return MINUSEQ; }
-"*="    { TOKEN(fns::TokenType::OPERATOR, yytext); return STAREQ; }
-"/="    { TOKEN(fns::TokenType::OPERATOR, yytext); return SLASHEQ; }
-"%="    { TOKEN(fns::TokenType::OPERATOR, yytext); return PERCENTEQ; }
-"&="    { TOKEN(fns::TokenType::OPERATOR, yytext); return ANDEQ; }
-"|="    { TOKEN(fns::TokenType::OPERATOR, yytext); return OREQ; }
-"^="    { TOKEN(fns::TokenType::OPERATOR, yytext); return XOREQ; }
-"->"    { TOKEN(fns::TokenType::OPERATOR, yytext); return ARROW; }
-"++"    { TOKEN(fns::TokenType::OPERATOR, yytext); return INC; }
-"--"    { TOKEN(fns::TokenType::OPERATOR, yytext); return DEC; }
+"..." { return ELLIPSIS; }
+"::"    { return SCOPE; }
+"<<="   { return SHLEQ; }
+">>="   { return SHREQ; }
+"<<"    { return SHL; }
+">>"    { return SHR; }
+"&&"    { return ANDAND; }
+"||"    { return OROR; }
+"=="    { return EQ; }
+"!="    { return NEQ; }
+"<="    { return LE; }
+">="    { return GE; }
+"+="    { return PLUSEQ; }
+"-="    { return MINUSEQ; }
+"*="    { return STAREQ; }
+"/="    { return SLASHEQ; }
+"%="    { return PERCENTEQ; }
+"&="    { return ANDEQ; }
+"|="    { return OREQ; }
+"^="    { return XOREQ; }
+"->"    { return ARROW; }
+"++"    { return INC; }
+"--"    { return DEC; }
 
-"+"     { TOKEN(fns::TokenType::OPERATOR, yytext); return PLUS; }
-"-"     { TOKEN(fns::TokenType::OPERATOR, yytext); return MINUS; }
-"*"     { TOKEN(fns::TokenType::OPERATOR, yytext); return STAR; }
-"/"     { TOKEN(fns::TokenType::OPERATOR, yytext); return SLASH; }
-"%"     { TOKEN(fns::TokenType::OPERATOR, yytext); return PERCENT; }
-"="     { TOKEN(fns::TokenType::OPERATOR, yytext); return ASSIGN; }
-"!"     { TOKEN(fns::TokenType::OPERATOR, yytext); return NOT; }
-"<"     { TOKEN(fns::TokenType::OPERATOR, yytext); return LT; }
-">"     { TOKEN(fns::TokenType::OPERATOR, yytext); return GT; }
-"&"     { TOKEN(fns::TokenType::OPERATOR, yytext); return BITAND; }
-"|"     { TOKEN(fns::TokenType::OPERATOR, yytext); return BITOR; }
-"^"     { TOKEN(fns::TokenType::OPERATOR, yytext); return BITXOR; }
-"~"     { TOKEN(fns::TokenType::OPERATOR, yytext); return BITNOT; }
-"?"     { TOKEN(fns::TokenType::OPERATOR, yytext); return QUESTION; }
-":"     { TOKEN(fns::TokenType::OPERATOR, yytext); return COLON; }
+"+"     { return PLUS; }
+"-"     { return MINUS; }
+"*"     { return STAR; }
+"/"     { return SLASH; }
+"%"     { return PERCENT; }
+"="     { return ASSIGN; }
+"!"     { return NOT; }
+"<"     { return LT; }
+">"     { return GT; }
+"&"     { return BITAND; }
+"|"     { return BITOR; }
+"^"     { return BITXOR; }
+"~"     { return BITNOT; }
+"?"     { return QUESTION; }
+":"     { return COLON; }
 
-
-"("     { TOKEN(fns::TokenType::LPAREN, yytext); return LPAREN; }
-")"     { TOKEN(fns::TokenType::RPAREN, yytext); return RPAREN; }
-"{"     { TOKEN(fns::TokenType::LBRACE, yytext); return LBRACE; }
-"}"     { TOKEN(fns::TokenType::RBRACE, yytext); return RBRACE; }
-"["     { TOKEN(fns::TokenType::LBRACKET, yytext); return LBRACKET; }
-"]"     { TOKEN(fns::TokenType::RBRACKET, yytext); return RBRACKET; }
-";"     { TOKEN(fns::TokenType::SEMICOLON, yytext); return SEMI; }
-","     { TOKEN(fns::TokenType::COMMA, yytext); return COMMA; }
-"."     { TOKEN(fns::TokenType::OPERATOR, yytext); return DOT; }
-
+"("     { return LPAREN; }
+")"     { return RPAREN; }
+"{"     { return LBRACE; }
+"}"     { return RBRACE; }
+"["     { return LBRACKET; }
+"]"     { return RBRACKET; }
+";"     { return SEMI; }
+","     { return COMMA; }
+"."     { return DOT; }
 
 [ \t\r\n]+   { }
 

@@ -1,3 +1,0 @@
-Compiling: test/23_multidim_arrays.c
-Assembly written to test/output/23_multidim_arrays.s (4 function(s))
-IR written to test/output/23_multidim_arrays.ir

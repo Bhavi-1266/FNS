@@ -1,3 +1,0 @@
-Compiling: test/15_lambda.cpp
-Assembly written to test/output/15_lambda.s (22 function(s))
-IR written to test/output/15_lambda.ir

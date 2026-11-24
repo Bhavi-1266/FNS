@@ -230,7 +230,7 @@ used), `.text`. Full format and the lowering of each construct:
 | `src/lib/libfns.c` | the C runtime library, written in FNS and compiled by fnsc |
 | `src/runtime.s` | the only hand-written assembly: spim system-call stubs |
 | `src/main.cpp` | command-line driver |
-| `src/decl_table.*`, `symbol_table.*`, `keywords.*`, `token.*` | front-end tables |
+| `src/decl_table.*`, `symbol_table.*` | lexer type-name tracking and front-end diagnostics |
 | `test/` | test programs, `input/`, `args/`, `expected/`, `errors/`, `ir_phase/` (earlier-phase IR tests) |
 | `run.sh`, `makefile`, `tools/` | test harness, build, helper scripts |
 

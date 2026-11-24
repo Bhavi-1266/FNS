@@ -1,7 +1,0 @@
-rect area=12 perim=14
-square area=25 perim=20
-shape0 total=26
-shape1 total=45
-stack size=3
-pop=30 pop=20
-stack size=1

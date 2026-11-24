@@ -23,9 +23,9 @@ LIB_ASM := src/lib/libfns.s
 LIB_INC := $(BUILD)/libfns_asm.inc
 
 HDRS := src/ast.hpp src/ir.hpp src/codegen.hpp src/decl_table.hpp src/symbol_table.hpp \
-        src/keywords.hpp src/token.hpp src/mips.hpp src/preprocess.hpp
+        src/mips.hpp src/preprocess.hpp
 COMMON_OBJS := $(BUILD)/parser.tab.o $(BUILD)/lex.yy.o $(BUILD)/decl_table.o \
-        $(BUILD)/symbol_table.o $(BUILD)/keywords.o $(BUILD)/token.o $(BUILD)/ir.o \
+        $(BUILD)/symbol_table.o $(BUILD)/ir.o \
         $(BUILD)/codegen.o $(BUILD)/preprocess.o $(BUILD)/main.o
 
 .PHONY: all help test check run clean
@@ -119,4 +119,4 @@ run: $(EXE)
 
 clean:
 	rm -rf $(BUILD) $(EXE) $(LIB_ASM) test/output
-	rm -f *.ir *.s decl_table.txt symbol_table.txt
+	rm -f *.ir *.s

@@ -189,6 +189,7 @@ private:
     std::string cond_value(Node *n);
     bool is_scalar(const TypeSpec &t) const;
     bool is_integer(const TypeSpec &t) const;
+    bool is_small_integer(const TypeSpec &t) const;
     std::string user_label(const std::string &name);
     Val emit_call(FuncInfo *fi, const std::string &callee, const std::vector<std::string> &args,
                   bool indirect);

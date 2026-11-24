@@ -31,7 +31,7 @@ struct TypeSpec {
     std::vector<TypeSpec *> params;
     bool variadic = false;
     Node *agg_def = nullptr;      // inline struct/class/union/enum body
-    std::string kind_str;         // phase-2 declaration table label
+    std::string kind_str;         // source spelling used while building declarations
 };
 
 struct Declarator {

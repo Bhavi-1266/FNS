@@ -1,3 +1,0 @@
-Compiling: test/17_inheritance.cpp
-Assembly written to test/output/17_inheritance.s (32 function(s))
-IR written to test/output/17_inheritance.ir

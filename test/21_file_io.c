@@ -1,6 +1,6 @@
 /* Feature: file manipulation: fopen modes (w, r, a, w+), fprintf/fscanf, fputs/fgets,
    fputc/fgetc, fwrite/fread, feof, counting lines/words/chars, copying a file,
-   error handling for a missing file.  Files are created in the working directory. */
+   random access with fseek/ftell/rewind, error handling for a missing file.  Files are created in the working directory. */
 #include <stdio.h>
 #include <string.h>
 
@@ -60,7 +60,38 @@ int main() {
     fclose(bin);
     for (int i = 0; i < got; i++) printf("rec %d: %.2f\n", back[i].id, back[i].score);
 
-    /* w+ : write then read back without reopening is not needed; reopen read */
+    /* random access: fseek (SEEK_SET/SEEK_CUR/SEEK_END), ftell, rewind, overwrite */
+    char word[32];
+    FILE *ra = fopen("fns_test_seek.txt", "w+");
+    fputs("hello world\nsecond line\n", ra);
+    long size = ftell(ra);
+    printf("size=%ld\n", size);
+    fseek(ra, 6, SEEK_SET);
+    fgets(word, 6, ra);
+    long at = ftell(ra);
+    printf("at 6: [%s] now %ld\n", word, at);
+    fseek(ra, 1, SEEK_CUR);
+    int ch = fgetc(ra);
+    printf("SEEK_CUR: %c\n", ch);
+    fseek(ra, -5, SEEK_END);
+    fgets(word, 32, ra);
+    printf("last 5: [%s] eof=%d\n", word, fgetc(ra) == EOF && feof(ra));
+    rewind(ra);
+    long start = ftell(ra);
+    ch = fgetc(ra);
+    printf("rewind: %ld %c eof=%d\n", start, ch, feof(ra) != 0);
+    fseek(ra, 0, SEEK_SET);
+    fputs("HELLO", ra);
+    rewind(ra);
+    fgets(word, 32, ra);
+    printf("overwritten: %s", word);
+    printf("bad seek: %d %d\n", fseek(ra, -1, SEEK_SET), fseek(ra, 0, 9));
+    fclose(ra);
+    ra = fopen("fns_test_seek.txt", "a");
+    long end = ftell(ra);
+    printf("append starts at %ld\n", end);
+    fclose(ra);
+
     FILE *missing = fopen("no_such_dir/none.txt", "r");
     printf("missing file -> %s\n", missing == NULL ? "NULL" : "opened");
     fprintf(stdout, "written to stdout via fprintf\n");

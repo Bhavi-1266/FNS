@@ -266,7 +266,7 @@ prototypes of these functions are supplied automatically.
 
 | Header | Functions |
 |---|---|
-| stdio | `printf scanf sprintf snprintf sscanf fprintf fscanf vprintf vfprintf vsprintf vsnprintf putchar getchar puts fopen fclose fputc putc fgetc getc ungetc fputs fgets fread fwrite feof ferror fflush remove`, `stdin stdout stderr`, `FILE`, `EOF` |
+| stdio | `printf scanf sprintf snprintf sscanf fprintf fscanf vprintf vfprintf vsprintf vsnprintf putchar getchar puts fopen fclose fseek ftell rewind fputc putc fgetc getc ungetc fputs fgets fread fwrite feof ferror fflush remove`, `stdin stdout stderr`, `FILE`, `EOF`, `SEEK_SET SEEK_CUR SEEK_END` |
 | stdlib | `malloc calloc realloc free exit abort abs labs atoi atol atof strtol strtod rand srand qsort bsearch`, `NULL`, `RAND_MAX`, `EXIT_SUCCESS/FAILURE` |
 | string | `strlen strcpy strncpy strcat strncat strcmp strncmp strchr strrchr strstr strdup strtok strspn strcspn strpbrk memset memcpy memmove memcmp` |
 | ctype | `isdigit isalpha isalnum isspace isupper islower ispunct isxdigit isprint toupper tolower` |
@@ -327,7 +327,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 | Topic | FNS | C / C++ |
 |---|---|---|
 | **Evaluation order** | **Strictly left to right**: operands, function arguments and initializers. E.g. `printf("%d %d", f(), f())` calls the first `f()` first. gcc evaluates arguments right to left on x86-64, so a program whose output depends on this order prints differently. | unspecified |
-| Struct values | assignment, pass and return by value work; `f().x` (a member of a returned struct) is not supported | supported |
+| Struct values | assignment, pass and return by value, and members of a returned struct (`f().x`, `f().a[i]`) | same |
 | `switch` | compiled as a comparison chain; labels must be integer constant expressions | jump table |
 | `goto` out of a block | does not run destructors of objects in the blocks it leaves | runs them |
 | Comma, `?:`, `&&`, `\|\|` | as in C | |
@@ -366,7 +366,7 @@ FNS behaves like C (for `.c`) or C++ (for `.cpp`) except for the points below.
 | Topic | FNS | C |
 |---|---|---|
 | Console | `stdin`, `stdout`, `stderr` all use spim's console; output is unbuffered (no `fflush` needed) | buffered streams |
-| Files | `fopen` modes `r w a r+ w+ a+` (`b` ignored); paths are relative to the directory spim runs in. **No `fseek`, `ftell`, `rewind`** (spim has no seek system call); `remove()` always returns -1 (no delete system call). | full |
+| Files | `fopen` modes `r w a r+ w+ a+` (`b` ignored); paths are relative to the directory spim runs in. `fseek`/`ftell`/`rewind` work (`SEEK_SET`/`SEEK_CUR`/`SEEK_END`); spim has no seek system call, so `fseek` reopens the file and reads forward to the position, which takes time proportional to the offset, and seeking past the end stops at the end. `remove()` always returns -1 (no delete system call). | full |
 | `time()` | returns 0 | wall clock |
 | Math | computed by the library in double precision (sqrt uses the FPU); results may differ from glibc in the last digits | libm |
 | Memory | `malloc` gets memory with spim's `sbrk`; freed blocks are reused; memory errors (double free, out-of-bounds) are not detected; a null or invalid dereference makes spim print an exception message (`Bad address in data/stack read`) and continue | |

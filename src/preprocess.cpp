@@ -49,6 +49,9 @@ const char *LIB_PROTOS[][2] = {
     {"fgets", "char *fgets(char *s, int n, FILE *fp);"},
     {"fopen", "FILE *fopen(const char *name, const char *mode);"},
     {"fclose", "int fclose(FILE *fp);"},
+    {"fseek", "int fseek(FILE *fp, long off, int whence);"},
+    {"ftell", "long ftell(FILE *fp);"},
+    {"rewind", "void rewind(FILE *fp);"},
     {"feof", "int feof(FILE *fp);"},
     {"ferror", "int ferror(FILE *fp);"},
     {"fflush", "int fflush(FILE *fp);"},
@@ -171,6 +174,9 @@ void Preprocessor::predefine() {
     if (cplusplus_) define("__cplusplus", "201703L");
     define("NULL", "((void*)0)");
     define("EOF", "(-1)");
+    define("SEEK_SET", "0");
+    define("SEEK_CUR", "1");
+    define("SEEK_END", "2");
     define("INT_MAX", "2147483647");
     define("INT_MIN", "(-2147483647-1)");
     define("UINT_MAX", "4294967295u");
@@ -600,7 +606,8 @@ std::string Preprocessor::prelude(const std::string &text) {
     bool own_file = user_typedefs("FILE");
     bool own_va = user_typedefs("va_list");
     if (!own_file)
-        p += "typedef struct __fns_FILE { int fd; int mode; int ungot; int eof; int err; } FILE; ";
+        p += "typedef struct __fns_FILE { int fd; int mode; int ungot; int eof; int err; "
+             "int pos; int reopen; char *name; } FILE; ";
     if (!user_typedefs("va_list")) p += "typedef char *va_list; ";
     if (!user_typedefs("size_t")) p += "typedef unsigned int size_t; ";
     if (runtime_) return p;

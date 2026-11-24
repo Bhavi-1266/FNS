@@ -630,31 +630,41 @@ FILE *__fns_file(FILE *fp) {
     return fp;
 }
 
-/* Comment: >30 lines because it maps the three supported modes to the host's
-   SPIM syscall flags, opens the file and initializes the runtime FILE object. */
+/* spim passes open(2) flags to the host system */
+#ifdef __FNS_DARWIN__
+#define __FNS_O_CREAT 512
+#define __FNS_O_TRUNC 1024
+#define __FNS_O_APPEND 8
+#else
+#define __FNS_O_CREAT 64
+#define __FNS_O_TRUNC 512
+#define __FNS_O_APPEND 1024
+#endif
+
+/* Number of bytes in a file (spim has no lseek/stat: read it through). */
+long __fns_size(const char *name) {
+    char buf[64];
+    long total = 0;
+    int k, fd = __sys_open(name, 0, 0);
+    if (fd < 0) return -1;
+    while ((k = __sys_read(fd, buf, 64)) > 0) total += k;
+    __sys_close(fd);
+    return total;
+}
+
+/* Comment: >30 lines because it maps the C modes to open(2) flags, opens the file
+   and initializes the runtime FILE object (including what fseek needs to reopen it). */
 FILE *fopen(const char *name, const char *mode) {
-    int flags = 0, fd;
+    int access, extra = 0, fd;
     int plus = 0;
     const char *m;
     FILE *f;
     for (m = mode; *m; m++) if (*m == '+') plus = 1;
-    if (mode[0] == 'r') flags = plus ? 2 : 0;
-    else if (mode[0] == 'w') {
-#ifdef __FNS_DARWIN__
-        flags = (plus ? 2 : 1) | 512 | 1024; /* O_CREAT | O_TRUNC */
-#else
-        flags = (plus ? 2 : 1) | 64 | 512;   /* O_CREAT | O_TRUNC */
-#endif
-    }
-    else if (mode[0] == 'a') {
-#ifdef __FNS_DARWIN__
-        flags = (plus ? 2 : 1) | 512 | 8;    /* O_CREAT | O_APPEND */
-#else
-        flags = (plus ? 2 : 1) | 64 | 1024;  /* O_CREAT | O_APPEND */
-#endif
-    }
-    else return 0;
-    fd = __sys_open(name, flags, 420);
+    access = plus ? 2 : (mode[0] == 'r' ? 0 : 1);
+    if (mode[0] == 'w') extra = __FNS_O_CREAT | __FNS_O_TRUNC;
+    else if (mode[0] == 'a') extra = __FNS_O_CREAT | __FNS_O_APPEND;
+    else if (mode[0] != 'r') return 0;
+    fd = __sys_open(name, access | extra, 420);
     if (fd < 0) return 0;
     f = (FILE *)malloc(sizeof(FILE));
     f->fd = fd;
@@ -662,6 +672,9 @@ FILE *fopen(const char *name, const char *mode) {
     f->ungot = 0;
     f->eof = 0;
     f->err = 0;
+    f->pos = mode[0] == 'a' && !plus ? -1 : 0;   /* -1: at the end of the file */
+    f->reopen = access | (mode[0] == 'a' ? __FNS_O_APPEND : 0);
+    f->name = strdup(name);
     return f;
 }
 
@@ -669,8 +682,49 @@ int fclose(FILE *fp) {
     if (!fp) return -1;
     if ((unsigned int)fp <= 3) return 0;
     __sys_close(fp->fd);
+    free(fp->name);
     free(fp);
     return 0;
+}
+
+long ftell(FILE *fp) {
+    FILE *f = __fns_file(fp);
+    if (!f || f->fd <= 2) return -1;
+    if (f->pos < 0) f->pos = __fns_size(f->name);
+    return f->pos - (f->ungot ? 1 : 0);
+}
+
+/* spim cannot move a file offset: reopen the file (never truncating) and read
+   forward to the requested position. */
+int fseek(FILE *fp, long off, int whence) {
+    FILE *f = __fns_file(fp);
+    char buf[64];
+    long target, done = 0;
+    int k, fd;
+    if (!f || f->fd <= 2) return -1;
+    if (whence == 0) target = off;
+    else if (whence == 1) target = ftell(f) + off;
+    else if (whence == 2) target = __fns_size(f->name) + off;
+    else return -1;
+    if (target < 0) return -1;
+    fd = __sys_open(f->name, f->reopen, 0);
+    if (fd < 0) { f->err = 1; return -1; }
+    __sys_close(f->fd);
+    f->fd = fd;
+    while (done < target) {
+        k = __sys_read(fd, buf, target - done < 64 ? target - done : 64);
+        if (k <= 0) break;
+        done += k;
+    }
+    f->pos = done;
+    f->ungot = 0;
+    f->eof = 0;
+    return 0;
+}
+
+void rewind(FILE *fp) {
+    FILE *f = __fns_file(fp);
+    if (fseek(fp, 0, 0) == 0) f->err = 0;
 }
 
 int fflush(FILE *fp) { return 0; }
@@ -684,6 +738,7 @@ int fputc(int c, FILE *fp) {
     if (!f) return -1;
     if (f->fd == 1 || f->fd == 2) { __sys_putc(c & 255); return c & 255; }
     if (__sys_write(f->fd, &ch, 1) != 1) { f->err = 1; return -1; }
+    if (f->pos >= 0) f->pos = (f->reopen & __FNS_O_APPEND) ? -1 : f->pos + 1;
     return c & 255;
 }
 
@@ -697,6 +752,7 @@ int fgetc(FILE *fp) {
     if (f->ungot) { int c = f->ungot - 1; f->ungot = 0; return c; }
     if (f->eof) return -1;
     if (__sys_read(f->fd, &ch, 1) != 1) { f->eof = 1; return -1; }
+    if (f->pos >= 0) f->pos++;
     return (int)(unsigned char)ch;
 }
 

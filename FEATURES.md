@@ -557,6 +557,7 @@ in the same union.
 ### 4.13 File manipulation — test 21
 
 **Supported:** `fopen` (modes `r w a r+ w+ a+`, with optional `b`), `fclose`,
+`fseek`/`ftell`/`rewind` (`SEEK_SET`, `SEEK_CUR`, `SEEK_END`),
 `fprintf`, `fscanf`, `fgets`, `fputs`, `fgetc`/`getc`, `fputc`/`putc`, `ungetc`,
 `fread`, `fwrite`, `feof`, `ferror`, `fflush`, and `stdin`/`stdout`/`stderr`.
 
@@ -567,6 +568,11 @@ in the same union.
   spim passes these flags to the host, so the runtime chooses the Linux or macOS
   values depending on where fnsc was built.
 - Reading and writing use syscalls 14 and 15, and closing uses syscall 16.
+- **Seeking:** spim has no seek system call, so the `FILE` also keeps the file name, the
+  flags to reopen it (without `O_TRUNC`) and the current position (counted on every
+  read and write). `fseek` computes the target (`SEEK_END` measures the file by reading
+  it), reopens the file and reads forward to the target. `ftell` returns the counted
+  position, and `rewind` is `fseek(f, 0, SEEK_SET)` that also clears the error flag.
 - `stdin`, `stdout` and `stderr` are fixed pseudo-pointers mapped to descriptors 0, 1 and 2.
 - `fprintf` and `fscanf` reuse the same formatter and scanner as `printf` and `scanf`.
 
@@ -657,7 +663,7 @@ calls:
 
 | Header | Functions |
 |---|---|
-| stdio | `printf scanf sprintf snprintf sscanf fprintf fscanf vprintf vfprintf vsprintf vsnprintf putchar getchar puts fopen fclose fputc putc fgetc getc ungetc fputs fgets fread fwrite feof ferror fflush remove` |
+| stdio | `printf scanf sprintf snprintf sscanf fprintf fscanf vprintf vfprintf vsprintf vsnprintf putchar getchar puts fopen fclose fseek ftell rewind fputc putc fgetc getc ungetc fputs fgets fread fwrite feof ferror fflush remove` |
 | stdlib | `malloc calloc realloc free exit abort abs labs atoi atol atof strtol strtod rand srand qsort bsearch` |
 | string | `strlen strcpy strncpy strcat strncat strcmp strncmp strchr strrchr strstr strdup strtok strspn strcspn strpbrk memset memcpy memmove memcmp` |
 | ctype | `isdigit isalpha isalnum isspace isupper islower ispunct isxdigit isprint toupper tolower` |

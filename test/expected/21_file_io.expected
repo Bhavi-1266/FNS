@@ -10,6 +10,15 @@ wrote 3 records
 rec 1: 9.50
 rec 2: 7.25
 rec 3: 8.00
+size=24
+at 6: [world] now 11
+SEEK_CUR: s
+last 5: [line
+] eof=1
+rewind: 0 h eof=0
+overwritten: HELLO world
+bad seek: -1 -1
+append starts at 24
 missing file -> NULL
 written to stdout via fprintf
 written via fputs(stdout)
